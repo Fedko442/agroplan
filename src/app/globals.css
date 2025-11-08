@@ -19,8 +19,57 @@
   }
 }
 
+.leaflet-tile { 
+  filter: invert(1) hue-rotate(180deg) brightness(0.8) contrast(1.15);
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+.leaflet-container {
+  background: #ffffff !important;
+  pointer-events: none !important;
+}
+
+.leaflet-zoom-animated {
+  transform-origin: 0 0 !important;
+}
+
+html, body, #__next {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  background-color: #0b1a3a;
+  touch-action: pan-y pinch-zoom;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a1520;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e3a5c;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #2d4a62;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #1e3a5c #0a1520;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  scroll-behavior: smooth;
 }

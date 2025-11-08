@@ -1,65 +1,70 @@
-import Image from "next/image";
+import MapPage from "../components/Backround";
+import CenterDashboard from "../components/CenterDashboard";
+import Head from "next/head";
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <>
+      <Head>
+        <title>АгроПланнер</title>
+        <meta
+          name="viewport"
+          content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+      </Head>
+
+      <main className="min-h-screen w-screen relative overflow-x-hidden">
+        <MapPage />
+
+        <div className="relative z-30">
+          <CenterDashboard />
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+
+        <div className="fixed top-[3%] left-5 md:left-[10%] w-[90%] md:w-4/5 h-12 md:h-14 bg-[#162A3D] rounded-xl shadow-lg flex items-center px-3 md:px-4 z-50">
+          <button className="bg-transparent border-none cursor-pointer p-1 md:p-2 rounded flex flex-col gap-0.5 transition-colors hover:bg-[#2D4A62] min-w-8">
+            <div className="w-4 md:w-5 h-0.5 bg-[#E8F4FF]"></div>
+            <div className="w-4 md:w-5 h-0.5 bg-[#E8F4FF]"></div>
+            <div className="w-4 md:w-5 h-0.5 bg-[#E8F4FF]"></div>
+          </button>
+
+          <span className="ml-2 md:ml-3 text-sm md:text-lg font-semibold text-[#E8F4FF] whitespace-nowrap hidden xl:block">
+            АгроПланнер
+          </span>
+
+          <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center w-2/3 md:w-[65%] lg:w-[70%] xl:w-[65%] max-w-2xl">
+            <div className="relative flex items-center w-full">
+              <input
+                type="text"
+                placeholder="Поиск..."
+                className="w-full py-1.5 md:py-2 pr-8 md:pr-10 pl-3 md:pl-4 border border-[#2D4A62] rounded-full outline-none bg-[#0F1F2F] text-[#E8F4FF] text-sm md:text-base placeholder-[#8BA4B8]"
+              />
+              <div className="absolute right-4 md:right-3 w-3.5 md:w-4 h-3.5 md:h-4 border border-[#8BA4B8] rounded-full flex items-center justify-center">
+                <div className="w-1.5 md:w-2 h-0.5 bg-[#8BA4B8] transform rotate-45 absolute top-2.5 md:top-3 left-2.5 md:left-3"></div>
+              </div>
+            </div>
+          </div>
+
+          <button className="ml-auto w-8 h-8 md:w-10 md:h-10 rounded-full border-none bg-[#2D4A62] cursor-pointer flex items-center justify-center transition-colors hover:bg-[#3A5A7A] flex-shrink-0">
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="md:w-5 md:h-5"
+            >
+              <path
+                d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z"
+                fill="#E8F4FF"
+              />
+              <path
+                d="M12 14C9.33 14 4 15.34 4 18V20H20V18C20 15.34 14.67 14 12 14Z"
+                fill="#E8F4FF"
+              />
+            </svg>
+          </button>
         </div>
       </main>
-    </div>
+    </>
   );
 }
