@@ -27,11 +27,16 @@
 }
 
 .leaflet-container {
-  background: #ffffff !important;
-  pointer-events: none !important;
+  background: #f5f5f5 !important;
+  z-index: 1 !important;
+}
+
+.leaflet-pane {
+  will-change: transform;
 }
 
 .leaflet-zoom-animated {
+  will-change: transform;
   transform-origin: 0 0 !important;
 }
 
