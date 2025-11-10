@@ -4,13 +4,23 @@ import MapContainer from "@/features/map/components/MapContainer";
 import { useMap } from "@/features/map/context/MapContext";
 import FieldModal from "./FieldModal";
 import type { FieldData, LLPoint } from "../types";
+import { 
+  Pencil, 
+  Check, 
+  Trash2 
+} from "lucide-react";
 
 const getNextPointName = (index: number): string => {
   const letters = "АБВГДЕЖЗИКЛМНОПРСТУФХЦЧШЩЭЮЯ";
   return letters[index % letters.length];
 };
 
-export default function FieldCanvasWithMap({ onSave }: { onSave?: () => void }) {
+// Добавляем интерфейс для пропсов
+interface FieldCanvasWithMapProps {
+  onFieldCreated: (coordinates: { lat: number; lng: number }) => void;
+}
+
+export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanvasWithMapProps) {
   const mapRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -312,22 +322,12 @@ export default function FieldCanvasWithMap({ onSave }: { onSave?: () => void }) 
     return mapRef.current.findRegionForPoint(center.lat, center.lng);
   }, [getShapeCenter]);
 
-const handleShapeComplete = useCallback((completedShape: LLPoint[]) => {
-  const shapeWithNames = completedShape.map((point, index) => ({
-    ...point,
-    name: point.name || getNextPointName(index),
-    id: point.id || `point-${Date.now()}-${index}`
-  }));
-  
-  const region = findFieldRegion(shapeWithNames);
-  console.log("Определенный регион:", region); // ← ДОБАВЬТЕ ЭТО
-  
-  setPendingRegion(region?.name || "Неизвестный регион");
-  setPendingShape(shapeWithNames);
-  setShowFieldModal(true);
-  
-  console.log("[FieldCanvasWithMap] Shape completed, opening modal");
-}, [findFieldRegion]);
+ const handleShapeComplete = (points: LLPoint[]) => {
+  if (points.length > 0) {
+    const firstPoint = points[0];
+    onFieldCreated({ lat: firstPoint.lat, lng: firstPoint.lng });
+  }
+};
 
   const sendToBackend = useCallback((shape: LLPoint[], fieldData: FieldData) => {
     const region = findFieldRegion(shape);
@@ -350,7 +350,9 @@ const handleShapeComplete = useCallback((completedShape: LLPoint[]) => {
     console.log("[FieldCanvasWithMap] Sending to backend:", shapeData);
     return shapeData;
   }, [findFieldRegion]);
-
+interface FieldCanvasWithMapProps {
+  onFieldCreated?: (coordinates: {lat: number, lng: number}) => void;
+}
   const handleSaveClick = () => {
     if (currentPoints.length >= 3) {
       const shapeWithNames = currentPoints.map((point, index) => ({
@@ -524,27 +526,31 @@ const handleShapeComplete = useCallback((completedShape: LLPoint[]) => {
         />
       )}
 
-      <div className="absolute top-4 right-4 flex flex-col gap-2 z-[9999] pointer-events-auto">
-        <button
-          onClick={handleSaveClick}
-          className={`w-12 h-12 rounded-lg shadow-lg transition-colors pointer-events-auto ${
-            drawingMode 
-              ? "bg-green-600 hover:bg-green-700 text-white" 
-              : "bg-blue-600 hover:bg-blue-700 text-white"
-          }`}
-          title={drawingMode ? "Завершить рисование" : "Начать рисование"}
-        >
-          {drawingMode ? "✓" : "✎"}
-        </button>
-        
-        <button
-          onClick={clearAllShapes}
-          className="w-12 h-12 bg-gray-200 rounded-lg shadow-lg hover:bg-gray-300 transition-colors pointer-events-auto"
-          title="Очистить все фигуры"
-        >
-          🗑
-        </button>
-      </div>
+     <div className="absolute top-4 right-4 flex flex-col gap-2 z-[9999] pointer-events-auto">
+  <button
+    onClick={handleSaveClick}
+    className={`w-12 h-12 rounded-lg shadow-lg transition-colors pointer-events-auto flex items-center justify-center ${
+      drawingMode 
+        ? "bg-green-600 hover:bg-green-700 text-white" 
+        : "bg-blue-600 hover:bg-blue-700 text-white"
+    }`}
+    title={drawingMode ? "Завершить рисование" : "Начать рисование"}
+  >
+    {drawingMode ? (
+      <Check size={24} />
+    ) : (
+      <Pencil size={24} />
+    )}
+  </button>
+  
+  <button
+    onClick={clearAllShapes}
+    className="w-12 h-12 bg-gray-200 rounded-lg shadow-lg hover:bg-gray-300 transition-colors pointer-events-auto flex items-center justify-center"
+    title="Очистить все фигуры"
+  >
+    <Trash2 size={24} />
+  </button>
+</div>
 
       <FieldModal
         isOpen={showFieldModal}

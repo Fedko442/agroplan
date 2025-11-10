@@ -410,33 +410,26 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.name.trim()) {
-      alert("Пожалуйста, введите название поля");
-      return;
-    }
-    
-    if (!formData.soilType) {
-      alert("Пожалуйста, выберите тип почвы");
-      return;
-    }
-    
-    if (formData.isActive && !formData.crop) {
-      alert("Пожалуйста, выберите культуру для активного поля");
-      return;
-    }
-    
-    const hasEmptySides = manualSegmentLengths.some(segment => segment.length <= 0);
-    if (hasEmptySides) {
-      alert("Пожалуйста, укажите длины всех сторон поля");
-      return;
-    }
-    
-    onSave(formData);
-    onClose();
+ const handleSubmit = (e: React.FormEvent) => {
+  e.preventDefault();
+  
+  if (!formData.name.trim()) {
+    alert("Пожалуйста, введите название поля");
+    return;
+  }
+  
+  // Берем первую точку полигона для погоды
+  const firstPoint = points[0];
+  
+  // Добавляем координаты в данные поля
+  const fieldDataWithCoords = {
+    ...formData,
+    coordinates: { lat: firstPoint.lat, lng: firstPoint.lng } // ← ПЕРВАЯ ТОЧКА!
   };
+  
+  onSave(fieldDataWithCoords);
+  onClose();
+};
 
   if (!isOpen) return null;
 
