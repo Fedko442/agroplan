@@ -312,20 +312,22 @@ export default function FieldCanvasWithMap({ onSave }: { onSave?: () => void }) 
     return mapRef.current.findRegionForPoint(center.lat, center.lng);
   }, [getShapeCenter]);
 
-  const handleShapeComplete = useCallback((completedShape: LLPoint[]) => {
-    const shapeWithNames = completedShape.map((point, index) => ({
-      ...point,
-      name: point.name || getNextPointName(index),
-      id: point.id || `point-${Date.now()}-${index}`
-    }));
-    
-    const region = findFieldRegion(shapeWithNames);
-    setPendingRegion(region?.name || "Неизвестный регион");
-    setPendingShape(shapeWithNames);
-    setShowFieldModal(true);
-    
-    console.log("[FieldCanvasWithMap] Shape completed, opening modal");
-  }, [findFieldRegion]);
+const handleShapeComplete = useCallback((completedShape: LLPoint[]) => {
+  const shapeWithNames = completedShape.map((point, index) => ({
+    ...point,
+    name: point.name || getNextPointName(index),
+    id: point.id || `point-${Date.now()}-${index}`
+  }));
+  
+  const region = findFieldRegion(shapeWithNames);
+  console.log("Определенный регион:", region); // ← ДОБАВЬТЕ ЭТО
+  
+  setPendingRegion(region?.name || "Неизвестный регион");
+  setPendingShape(shapeWithNames);
+  setShowFieldModal(true);
+  
+  console.log("[FieldCanvasWithMap] Shape completed, opening modal");
+}, [findFieldRegion]);
 
   const sendToBackend = useCallback((shape: LLPoint[], fieldData: FieldData) => {
     const region = findFieldRegion(shape);

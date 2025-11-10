@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { useFieldArea } from "../hooks/useFieldArea";
 import cropsData from '@/data/crops.json';
+import soilsData from '@/../public/soils.json';
+import mineralsData from '@/../public/minerals.json';
 import type { FieldData, LLPoint, SoilData, PlannedOperation, Fertilizer, IrrigationSystem } from "../types";
 
 type FieldModalProps = {
@@ -19,6 +21,9 @@ type Crop = {
   categories: string[];
   type: string;
 };
+
+// Добавим список всех типов почв из minerals.json
+const ALL_SOIL_TYPES = Object.keys(mineralsData.агрохимия || {});
 
 const createCropCategories = (crops: Crop[]) => {
   const categories: { [key: string]: string[] } = {};
@@ -51,11 +56,6 @@ const ALL_CROPS = cropsData.searchIndex.map(crop => ({
   type: crop.type
 }));
 
-const SOIL_TYPES = [
-  "Чернозем", "Подзолистая", "Дерново-подзолистая", "Серая лесная",
-  "Каштановая", "Солонец", "Торфяная", "Песчаная", "Супесчаная", "Глинистая"
-];
-
 const OPERATION_TYPES = [
   "Вспашка", "Культивация", "Боронование", "Посев", "Внесение удобрений",
   "Обработка СЗР", "Полив", "Уборка урожая", "Лущение стерни", "Известкование"
@@ -70,57 +70,74 @@ const IRRIGATION_TYPES = [
   "Дождевание", "Капельное", "Арычное", "Подпочвенное", "Поверхностное"
 ];
 
-const fetchSoilData = async (lat: number, lng: number): Promise<SoilData | null> => {
-  try {
-    const response = await fetch(
-      `https://rest.soilgrids.org/query?lon=${lng}&lat=${lat}&attributes=phh2o,ocd,clay,sand,silt,nitrogen,phos,potassium`
-    );
-    
-    if (!response.ok) {
-      throw new Error('Soil API request failed');
-    }
-    
-    const data = await response.json();
-    const properties = data.properties;
-    
-    return {
-      ph: properties.phh2o?.mean / 10 || 0,
-      organicCarbon: properties.ocd?.mean / 10 || 0,
-      clay: properties.clay?.mean / 10 || 0,
-      sand: properties.sand?.mean / 10 || 0,
-      silt: properties.silt?.mean / 10 || 0,
-      nitrogen: properties.nitrogen?.mean / 10 || 0,
-      phosphorus: properties.phos?.mean / 10 || 0,
-      potassium: properties.potassium?.mean / 10 || 0
-    };
-  } catch (error) {
-    console.error('Error fetching soil data:', error);
-    
-    return {
-      ph: 6.5 + (Math.random() - 0.5),
-      organicCarbon: 2.0 + (Math.random() * 1.5),
-      clay: 25 + (Math.random() * 20),
-      sand: 40 + (Math.random() * 30),
-      silt: 35 + (Math.random() * 25),
-      nitrogen: 0.15 + (Math.random() * 0.1),
-      phosphorus: 0.08 + (Math.random() * 0.05),
-      potassium: 0.12 + (Math.random() * 0.08)
-    };
+// Функция для получения случайного значения из диапазона
+const getRandomFromRange = (range: string): number => {
+  if (range.includes('–')) {
+    const [minStr, maxStr] = range.split('–');
+    const min = parseFloat(minStr.replace(',', '.'));
+    const max = parseFloat(maxStr.replace(',', '.'));
+    return min + Math.random() * (max - min);
   }
+  
+  // Обработка специальных значений
+  const specialValues: {[key: string]: number} = {
+    'variable_low': 0.5 + Math.random() * 1.5,
+    'variable_med': 1.5 + Math.random() * 2,
+    'variable_high': 3 + Math.random() * 3,
+    'low': 0.1 + Math.random() * 0.3,
+    'very_low': 0.01 + Math.random() * 0.05
+  };
+  
+  return specialValues[range] || 0;
 };
 
-const determineSoilType = (soilData: SoilData): string => {
-  const { clay, sand, silt, organicCarbon } = soilData;
+// Функция для получения данных почвы по типу
+const getSoilDataByType = (soilType: string): SoilData | null => {
+  if (!soilType) return null;
   
-  if (clay > 35) return "Глинистая";
-  if (clay > 25 && sand > 45) return "Супесчаная";
-  if (sand > 85) return "Песчаная";
-  if (clay < 10 && silt < 30) return "Песчаная";
-  if (organicCarbon > 6) return "Торфяная";
-  if (clay > 20 && silt > 40) return "Серая лесная";
-  if (organicCarbon > 3 && clay > 15) return "Чернозем";
+  const minerals = mineralsData.агрохимия[soilType];
+  if (!minerals) return null;
   
-  return "Дерново-подзолистая";
+  // Сгенерировать данные почвы на основе минерального состава
+  const soilData: SoilData = {
+    ph: parseFloat(getRandomFromRange(minerals.pH).toFixed(1)),
+    organicCarbon: parseFloat(getRandomFromRange(minerals.humus_pct).toFixed(1)),
+    clay: Math.floor(20 + Math.random() * 30), // 20-50%
+    sand: Math.floor(30 + Math.random() * 40), // 30-70%
+    silt: Math.floor(10 + Math.random() * 30), // 10-40%
+    nitrogen: parseFloat(getRandomFromRange(minerals.N_total_pct).toFixed(3)),
+    phosphorus: parseFloat(getRandomFromRange(minerals.P_mgkg).toFixed(1)),
+    potassium: parseFloat(getRandomFromRange(minerals.K_mgkg).toFixed(1))
+  };
+  
+  // Нормализовать проценты глины, песка и ила чтобы сумма была 100%
+  const total = soilData.clay + soilData.sand + soilData.silt;
+  soilData.clay = Math.round((soilData.clay / total) * 100);
+  soilData.sand = Math.round((soilData.sand / total) * 100);
+  soilData.silt = 100 - soilData.clay - soilData.sand;
+  
+  return soilData;
+};
+
+// Функция для получения данных почвы по региону
+const getSoilDataForRegion = (regionName: string): { soilType: string; soilData: SoilData } | null => {
+  if (!regionName) return null;
+  
+  // Найти регион в данных
+  const regionInfo = soilsData.find(item => item.region === regionName);
+  if (!regionInfo || !regionInfo.soil || regionInfo.soil.length === 0) return null;
+  
+  // Выбрать случайный тип почвы для этого региона
+  const soilTypes = regionInfo.soil;
+  const randomSoilType = soilTypes[Math.floor(Math.random() * soilTypes.length)];
+  
+  const soilData = getSoilDataByType(randomSoilType);
+  if (!soilData) return null;
+  
+  return {
+    soilType: randomSoilType,
+    soilData
+  };
 };
 
 const searchCrops = (query: string, crops: Crop[]): Crop[] => {
@@ -169,6 +186,8 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
   const [isLoadingSoil, setIsLoadingSoil] = useState(false);
   const [soilData, setSoilData] = useState<SoilData | null>(null);
   const [manualSegmentLengths, setManualSegmentLengths] = useState<{ segment: string; length: number }[]>([]);
+  const [availableSoilTypes, setAvailableSoilTypes] = useState<string[]>([]);
+  const [isEditingSoil, setIsEditingSoil] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Crop[]>([]);
@@ -199,12 +218,12 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         area: calculatedArea
       }));
 
-      const centerLat = points.reduce((sum, p) => sum + p.lat, 0) / points.length;
-      const centerLng = points.reduce((sum, p) => sum + p.lng, 0) / points.length;
-      
-      fetchSoilDataForField(centerLat, centerLng);
+      // Загрузить данные почвы для региона
+      if (region) {
+        loadSoilDataForRegion(region);
+      }
     }
-  }, [isOpen, points]);
+  }, [isOpen, points, region]);
 
   useEffect(() => {
     if (manualSegmentLengths.length > 0) {
@@ -244,27 +263,69 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     }
   };
 
-  if (!isOpen) return null;
-
-  const fetchSoilDataForField = async (lat: number, lng: number) => {
+  const loadSoilDataForRegion = (regionName: string) => {
     setIsLoadingSoil(true);
-    try {
-      const soilData = await fetchSoilData(lat, lng);
-      setSoilData(soilData);
+    
+    setTimeout(() => {
+      const soilInfo = getSoilDataForRegion(regionName);
       
-      if (soilData) {
-        const detectedSoilType = determineSoilType(soilData);
+      if (soilInfo) {
+        setSoilData(soilInfo.soilData);
         setFormData(prev => ({
           ...prev,
-          soilType: detectedSoilType,
-          soilData: soilData
+          soilType: soilInfo.soilType,
+          soilData: soilInfo.soilData
         }));
+        
+        // Показать доступные типы почв для этого региона
+        const regionInfo = soilsData.find(item => item.region === regionName);
+        if (regionInfo) {
+          setAvailableSoilTypes(regionInfo.soil);
+        }
       }
-    } catch (error) {
-      console.error('Error loading soil data:', error);
-    } finally {
+      
       setIsLoadingSoil(false);
+    }, 500);
+  };
+
+  const handleSoilTypeChange = (soilType: string) => {
+    if (!soilType) {
+      setFormData(prev => ({ ...prev, soilType: "" }));
+      setSoilData(null);
+      return;
     }
+
+    const newSoilData = getSoilDataByType(soilType);
+    setSoilData(newSoilData);
+    setFormData(prev => ({
+      ...prev,
+      soilType,
+      soilData: newSoilData
+    }));
+    setIsEditingSoil(false);
+  };
+
+  const handleSoilDataChange = (field: keyof SoilData, value: number) => {
+    if (!soilData) return;
+
+    const updatedSoilData = {
+      ...soilData,
+      [field]: value
+    };
+
+    // Нормализовать гранулометрический состав если меняем глину/песок/ил
+    if (['clay', 'sand', 'silt'].includes(field)) {
+      const total = updatedSoilData.clay + updatedSoilData.sand + updatedSoilData.silt;
+      updatedSoilData.clay = Math.round((updatedSoilData.clay / total) * 100);
+      updatedSoilData.sand = Math.round((updatedSoilData.sand / total) * 100);
+      updatedSoilData.silt = 100 - updatedSoilData.clay - updatedSoilData.sand;
+    }
+
+    setSoilData(updatedSoilData);
+    setFormData(prev => ({
+      ...prev,
+      soilData: updatedSoilData
+    }));
   };
 
   const handleSegmentLengthChange = (index: number, value: number) => {
@@ -279,13 +340,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     setFormData(prev => ({
       ...prev,
       segmentLengths: updatedSegments
-    }));
-  };
-
-  const handleAreaChange = (value: number) => {
-    setFormData(prev => ({
-      ...prev,
-      area: value
     }));
   };
 
@@ -384,9 +438,7 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     onClose();
   };
 
-  const handleRegionClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-  };
+  if (!isOpen) return null;
 
   return (
     <div 
@@ -408,6 +460,7 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* ... остальные поля (название, площадь, регион, длины сторон) остаются без изменений ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
@@ -441,7 +494,7 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
                 </div>
               </div>
               <div className="text-[#8BA4B8] text-xs mt-1">
-                Площадь рассчитывается автоматически на основе длин сторон с использованием точных формул
+                Площадь рассчитывается автоматически на основе длин сторон
               </div>
             </div>
           </div>
@@ -455,10 +508,13 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
                 type="text"
                 value={region}
                 readOnly
-                onClick={handleRegionClick}
-                onMouseDown={handleRegionClick}
                 className="w-full px-3 py-2 bg-[#0F1F2F] border border-[#2D4A62] rounded-lg text-[#8BA4B8] cursor-default select-none"
               />
+              {availableSoilTypes.length > 0 && (
+                <div className="text-[#8BA4B8] text-xs mt-1">
+                  Доступные типы почв в регионе: {availableSoilTypes.join(', ')}
+                </div>
+              )}
             </div>
           )}
 
@@ -483,65 +539,226 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
                   </div>
                 </div>
               ))}
-              <div className="text-[#8BA4B8] text-xs mt-2">
-                Укажите фактические длины каждой стороны поля в метрах. Площадь будет рассчитана автоматически с использованием точных математических формул.
-              </div>
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
-              Тип почвы *
-              {isLoadingSoil && (
-                <span className="ml-2 text-yellow-400 text-sm">(загрузка данных...)</span>
-              )}
-              {soilData && !isLoadingSoil && (
-                <span className="ml-2 text-green-400 text-sm">(данные загружены)</span>
-              )}
-            </label>
-            
-            <div className="space-y-3">
+         {/* ОБНОВЛЕННАЯ СЕКЦИЯ: Тип почвы и характеристики */}
+<div>
+  <div className="flex justify-between items-center mb-2">
+    <label className="block text-sm font-medium text-[#8BA4B8]">
+      Тип почвы *
+      {isLoadingSoil && (
+        <span className="ml-2 text-yellow-400 text-sm">(определение...)</span>
+      )}
+      {soilData && !isLoadingSoil && (
+        <span className="ml-2 text-green-400 text-sm">(определено автоматически)</span>
+      )}
+    </label>
+    {soilData && (
+      <button
+        type="button"
+        onClick={() => setIsEditingSoil(!isEditingSoil)}
+        className="text-sm text-[#3388ff] hover:text-[#2970cc] transition-colors"
+      >
+        {isEditingSoil ? 'Завершить редактирование' : 'Редактировать характеристики'}
+      </button>
+    )}
+  </div>
+  
+  <div className="space-y-3">
+    <div className="relative">
+      <select
+        value={formData.soilType}
+        onChange={(e) => handleSoilTypeChange(e.target.value)}
+        className="w-full px-3 py-2 bg-[#0F1F2F] border border-[#2D4A62] rounded-lg text-[#E8F4FF] focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-8"
+      >
+        <option value="">Выберите тип почвы</option>
+        {ALL_SOIL_TYPES.map(soilType => (
+          <option key={soilType} value={soilType}>{soilType}</option>
+        ))}
+      </select>
+      {/* Кастомная стрелка */}
+      <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+        <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </div>
+    </div>
+
+    {soilData && (
+      <div className="bg-[#0F1F2F] rounded-lg p-4 border border-[#2D4A62]">
+        <h4 className="text-[#E8F4FF] font-medium mb-3">Характеристики почвы:</h4>
+        <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">pH:</span>
+            {isEditingSoil ? (
               <input
-                type="text"
-                value={formData.soilType}
-                readOnly
-                className="w-full px-3 py-2 bg-[#0F1F2F] border border-[#2D4A62] rounded-lg text-[#E8F4FF] cursor-not-allowed"
+                type="number"
+                step="0.1"
+                min="3"
+                max="10"
+                value={soilData.ph}
+                onChange={(e) => handleSoilDataChange('ph', parseFloat(e.target.value) || 0)}
+                className="w-16 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
               />
-
-              {soilData && (
-                <div className="bg-[#0F1F2F] rounded-lg p-4 border border-[#2D4A62]">
-                  <h4 className="text-[#E8F4FF] font-medium mb-3">Характеристики почвы:</h4>
-                  <div className="grid grid-cols-1 xs:grid-cols-2 md:grid-cols-4 gap-2 text-sm">
-                    <div className="text-[#8BA4B8]">
-                      <div>pH: <span className="text-[#E8F4FF]">{soilData.ph.toFixed(1)}</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Орг. углерод: <span className="text-[#E8F4FF]">{soilData.organicCarbon.toFixed(1)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Глина: <span className="text-[#E8F4FF]">{soilData.clay.toFixed(0)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Песок: <span className="text-[#E8F4FF]">{soilData.sand.toFixed(0)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Ил: <span className="text-[#E8F4FF]">{soilData.silt.toFixed(0)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Азот: <span className="text-[#E8F4FF]">{soilData.nitrogen.toFixed(2)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Фосфор: <span className="text-[#E8F4FF]">{soilData.phosphorus.toFixed(2)}%</span></div>
-                    </div>
-                    <div className="text-[#8BA4B8]">
-                      <div>Калий: <span className="text-[#E8F4FF]">{soilData.potassium.toFixed(2)}%</span></div>
-                    </div>
-                  </div>
-                </div>
-              )}
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.ph.toFixed(1)}</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Орг. углерод:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="20"
+                  value={soilData.organicCarbon}
+                  onChange={(e) => handleSoilDataChange('organicCarbon', parseFloat(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">%</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.organicCarbon.toFixed(1)}%</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Глина:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={soilData.clay}
+                  onChange={(e) => handleSoilDataChange('clay', parseInt(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">%</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.clay}%</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Песок:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={soilData.sand}
+                  onChange={(e) => handleSoilDataChange('sand', parseInt(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">%</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.sand}%</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Ил:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="100"
+                  value={soilData.silt}
+                  onChange={(e) => handleSoilDataChange('silt', parseInt(e.target.value) || 0)}
+                  className="w-16 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">%</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.silt}%</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Азот:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="0.001"
+                  min="0"
+                  max="1"
+                  value={soilData.nitrogen}
+                  onChange={(e) => handleSoilDataChange('nitrogen', parseFloat(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">%</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.nitrogen.toFixed(3)}%</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Фосфор:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1000"
+                  value={soilData.phosphorus}
+                  onChange={(e) => handleSoilDataChange('phosphorus', parseFloat(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">мг/кг</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.phosphorus.toFixed(1)} мг/кг</span>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className="text-[#8BA4B8] whitespace-nowrap">Калий:</span>
+            {isEditingSoil ? (
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  max="1000"
+                  value={soilData.potassium}
+                  onChange={(e) => handleSoilDataChange('potassium', parseFloat(e.target.value) || 0)}
+                  className="w-20 px-2 py-1 bg-[#2D4A62] border border-[#3A5A7A] rounded text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+                />
+                <span className="text-[#8BA4B8]">мг/кг</span>
+              </div>
+            ) : (
+              <span className="text-[#E8F4FF]">{soilData.potassium.toFixed(1)} мг/кг</span>
+            )}
+          </div>
+        </div>
+        
+        {isEditingSoil && (
+          <div className="mt-3 p-3 bg-blue-900 bg-opacity-20 rounded-lg border border-blue-700">
+            <div className="text-blue-300 text-xs">
+              <strong>Внимание:</strong> При изменении глины, песка или ила автоматически пересчитывается гранулометрический состав.
             </div>
           </div>
-
+        )}
+      </div>
+    )}
+  </div>
+</div>
+          {/* Остальной код остается таким же как был */}
           <div className="flex items-center space-x-3">
             <input
               type="checkbox"
@@ -600,23 +817,31 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
                   </div>
                 </div>
 
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-[#8BA4B8] mb-2">Или выберите из категорий</label>
-                  <select
-                    value={selectedCategory}
-                    onChange={(e) => {
-                      setSelectedCategory(e.target.value);
-                      setFormData(prev => ({ ...prev, crop: "" }));
-                      setSelectedCropDetails(null);
-                    }}
-                    className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] focus:outline-none focus:border-[#3388ff] transition-colors"
-                  >
-                    <option value="">Выберите категорию</option>
-                    {Object.keys(CROP_CATEGORIES).map(category => (
-                      <option key={category} value={category}>{category}</option>
-                    ))}
-                  </select>
-                </div>
+              <div className="mb-4">
+  <label className="block text-sm font-medium text-[#8BA4B8] mb-2">Или выберите из категорий</label>
+  <div className="relative">
+    <select
+      value={selectedCategory}
+      onChange={(e) => {
+        setSelectedCategory(e.target.value);
+        setFormData(prev => ({ ...prev, crop: "" }));
+        setSelectedCropDetails(null);
+      }}
+      className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-8"
+    >
+      <option value="">Выберите категорию</option>
+      {Object.keys(CROP_CATEGORIES).map(category => (
+        <option key={category} value={category}>{category}</option>
+      ))}
+    </select>
+    {/* Кастомная стрелка */}
+    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+      <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  </div>
+</div>
 
                 {selectedCategory && (
                   <div>
@@ -689,6 +914,7 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             </div>
           )}
 
+          {/* Остальные секции (история севооборота, орошение, работы, удобрения, заметки) остаются без изменений */}
           <div>
             <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
               История севооборота (что росло в предыдущие годы)
@@ -724,27 +950,35 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
 
             {formData.irrigationSystem.hasSystem && (
               <div className="space-y-3">
-                <div>
-                  <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
-                    Тип системы орошения
-                  </label>
-                  <select
-                    value={formData.irrigationSystem.type}
-                    onChange={(e) => setFormData(prev => ({
-                      ...prev,
-                      irrigationSystem: {
-                        ...prev.irrigationSystem,
-                        type: e.target.value
-                      }
-                    }))}
-                    className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] focus:outline-none focus:border-[#3388ff] transition-colors"
-                  >
-                    <option value="">Выберите тип орошения</option>
-                    {IRRIGATION_TYPES.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </select>
-                </div>
+               <div>
+  <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
+    Тип системы орошения
+  </label>
+  <div className="relative">
+    <select
+      value={formData.irrigationSystem.type}
+      onChange={(e) => setFormData(prev => ({
+        ...prev,
+        irrigationSystem: {
+          ...prev.irrigationSystem,
+          type: e.target.value
+        }
+      }))}
+      className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-8"
+    >
+      <option value="">Выберите тип орошения</option>
+      {IRRIGATION_TYPES.map(type => (
+        <option key={type} value={type}>{type}</option>
+      ))}
+    </select>
+    {/* Кастомная стрелка */}
+    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+      <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  </div>
+</div>
                 
                 <div>
                   <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
@@ -768,178 +1002,202 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-[#8BA4B8] mb-3">
-              Планируемые работы
-            </label>
-            
-            <div className="bg-[#0F1F2F] rounded-lg p-4 space-y-3 border border-[#2D4A62]">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <select
-                  value={newOperation.type}
-                  onChange={(e) => setNewOperation(prev => ({ ...prev, type: e.target.value }))}
-                  className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
-                >
-                  <option value="">Тип работы</option>
-                  {OPERATION_TYPES.map(op => (
-                    <option key={op} value={op}>{op}</option>
-                  ))}
-                </select>
-                
-                <input
-                  type="date"
-                  value={newOperation.date}
-                  onChange={(e) => setNewOperation(prev => ({ ...prev, date: e.target.value }))}
-                  className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
-                />
-                
-                <button
-                  type="button"
-                  onClick={addOperation}
-                  disabled={!newOperation.type || !newOperation.date}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                >
-                  Добавить
-                </button>
-              </div>
+        <div>
+  <label className="block text-sm font-medium text-[#8BA4B8] mb-3">
+    Планируемые работы
+  </label>
+  
+  <div className="bg-[#0F1F2F] rounded-lg p-4 space-y-3 border border-[#2D4A62]">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="relative">
+        <select
+          value={newOperation.type}
+          onChange={(e) => setNewOperation(prev => ({ ...prev, type: e.target.value }))}
+          className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-8"
+        >
+          <option value="">Тип работы</option>
+          {OPERATION_TYPES.map(op => (
+            <option key={op} value={op}>{op}</option>
+          ))}
+        </select>
+        {/* Кастомная стрелка */}
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+          <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      
+      <input
+        type="date"
+        value={newOperation.date}
+        onChange={(e) => setNewOperation(prev => ({ ...prev, date: e.target.value }))}
+        className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+      />
+      
+      <button
+        type="button"
+        onClick={addOperation}
+        disabled={!newOperation.type || !newOperation.date}
+        className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+      >
+        Добавить
+      </button>
+    </div>
 
-              {formData.plannedOperations.length > 0 && (
-                <div className="space-y-2">
-                  {formData.plannedOperations.map((operation, index) => (
-                    <div key={index} className="flex justify-between items-center bg-[#2D4A62] p-3 rounded-lg">
-                      <div>
-                        <span className="text-[#E8F4FF] text-sm">{operation.type}</span>
-                        <span className="text-[#8BA4B8] text-sm ml-2">({new Date(operation.date).toLocaleDateString('ru-RU')})</span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeOperation(index)}
-                        className="text-red-400 hover:text-red-300 text-sm transition-colors"
-                      >
-                        Удалить
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+    {formData.plannedOperations.length > 0 && (
+      <div className="space-y-2">
+        {formData.plannedOperations.map((operation, index) => (
+          <div key={index} className="flex justify-between items-center bg-[#2D4A62] p-3 rounded-lg">
+            <div>
+              <span className="text-[#E8F4FF] text-sm">{operation.type}</span>
+              <span className="text-[#8BA4B8] text-sm ml-2">({new Date(operation.date).toLocaleDateString('ru-RU')})</span>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[#8BA4B8] mb-3">
-              Удобрения (использованные/планируемые)
-            </label>
-            
-            <div className="bg-[#0F1F2F] rounded-lg p-4 space-y-3 border border-[#2D4A62]">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
-                <select
-                  value={newFertilizer.type}
-                  onChange={(e) => setNewFertilizer(prev => ({ ...prev, type: e.target.value }))}
-                  className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
-                >
-                  <option value="">Тип удобрения</option>
-                  {FERTILIZER_TYPES.map(fert => (
-                    <option key={fert} value={fert}>{fert}</option>
-                  ))}
-                </select>
-                
-                <input
-                  type="text"
-                  value={newFertilizer.name}
-                  onChange={(e) => setNewFertilizer(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Название"
-                  className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm placeholder-[#8BA4B8] focus:outline-none focus:border-[#3388ff] transition-colors"
-                />
-                
-                <input
-                  type="date"
-                  value={newFertilizer.applicationDate}
-                  onChange={(e) => setNewFertilizer(prev => ({ ...prev, applicationDate: e.target.value }))}
-                  className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
-                />
-                
-                <div className="flex gap-2">
-                  <input
-                    type="number"
-                    value={newFertilizer.amount}
-                    onChange={(e) => setNewFertilizer(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                    placeholder="Кол-во"
-                    className="w-20 px-2 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                  />
-                  <select
-                    value={newFertilizer.unit}
-                    onChange={(e) => setNewFertilizer(prev => ({ ...prev, unit: e.target.value }))}
-                    className="w-20 px-2 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
-                  >
-                    <option value="кг/га">кг/га</option>
-                    <option value="т/га">т/га</option>
-                    <option value="л/га">л/га</option>
-                    <option value="ц/га">ц/га</option>
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={addFertilizer}
-                  disabled={!newFertilizer.type || !newFertilizer.name || !newFertilizer.applicationDate}
-                  className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                >
-                  Добавить
-                </button>
-              </div>
-
-              {formData.fertilizers.length > 0 && (
-                <div className="space-y-2">
-                  {formData.fertilizers.map((fertilizer, index) => (
-                    <div key={index} className="flex justify-between items-center bg-[#2D4A62] p-3 rounded-lg">
-                      <div className="flex-1">
-                        <div className="text-[#E8F4FF] text-sm font-medium">{fertilizer.name}</div>
-                        <div className="text-[#8BA4B8] text-xs">
-                          {fertilizer.type} • {fertilizer.amount} {fertilizer.unit} • {new Date(fertilizer.applicationDate).toLocaleDateString('ru-RU')}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeFertilizer(index)}
-                        className="text-red-400 hover:text-red-300 text-sm ml-2 transition-colors"
-                      >
-                        Удалить
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
-              Дополнительные заметки
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-              rows={3}
-              className="w-full px-3 py-2 bg-[#0F1F2F] border border-[#2D4A62] rounded-lg text-[#E8F4FF] placeholder-[#8BA4B8] focus:outline-none focus:border-[#3388ff] transition-colors"
-              placeholder="Дополнительная информация о поле..."
-            />
-          </div>
-
-          <div className="flex justify-end space-x-3 pt-4 border-t border-[#2D4A62]">
             <button
               type="button"
-              onClick={onClose}
-              className="px-6 py-2 bg-[#2D4A62] text-[#E8F4FF] rounded-lg hover:bg-[#3A5A7A] transition-colors"
+              onClick={() => removeOperation(index)}
+              className="text-red-400 hover:text-red-300 text-sm transition-colors"
             >
-              Отмена
-            </button>
-            <button
-              type="submit"
-              className="px-6 py-2 bg-[#3388ff] text-white rounded-lg hover:bg-[#2970cc] transition-colors"
-            >
-              Сохранить поле
+              Удалить
             </button>
           </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
+<div>
+  <label className="block text-sm font-medium text-[#8BA4B8] mb-3">
+    Удобрения (использованные/планируемые)
+  </label>
+  
+  <div className="bg-[#0F1F2F] rounded-lg p-4 space-y-3 border border-[#2D4A62]">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-2">
+      <div className="relative">
+        <select
+          value={newFertilizer.type}
+          onChange={(e) => setNewFertilizer(prev => ({ ...prev, type: e.target.value }))}
+          className="w-full px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-8"
+        >
+          <option value="">Тип удобрения</option>
+          {FERTILIZER_TYPES.map(fert => (
+            <option key={fert} value={fert}>{fert}</option>
+          ))}
+        </select>
+        {/* Кастомная стрелка */}
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+          <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </div>
+      </div>
+      
+      <input
+        type="text"
+        value={newFertilizer.name}
+        onChange={(e) => setNewFertilizer(prev => ({ ...prev, name: e.target.value }))}
+        placeholder="Название"
+        className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm placeholder-[#8BA4B8] focus:outline-none focus:border-[#3388ff] transition-colors"
+      />
+      
+      <input
+        type="date"
+        value={newFertilizer.applicationDate}
+        onChange={(e) => setNewFertilizer(prev => ({ ...prev, applicationDate: e.target.value }))}
+        className="px-3 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors"
+      />
+      
+      <div className="flex gap-2">
+        <input
+          type="number"
+          value={newFertilizer.amount}
+          onChange={(e) => setNewFertilizer(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+          placeholder="Кол-во"
+          className="w-20 px-2 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+        />
+        <div className="relative">
+          <select
+            value={newFertilizer.unit}
+            onChange={(e) => setNewFertilizer(prev => ({ ...prev, unit: e.target.value }))}
+            className="w-17 px-2 py-2 bg-[#2D4A62] border border-[#3A5A7A] rounded-lg text-[#E8F4FF] text-sm focus:outline-none focus:border-[#3388ff] transition-colors appearance-none pr-6"
+          >
+            <option value="кг/га">кг/га</option>
+            <option value="т/га">т/га</option>
+            <option value="л/га">л/га</option>
+            <option value="ц/га">ц/га</option>
+          </select>
+          {/* Кастомная стрелка для маленького селекта */}
+          <div className="absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
+            <svg className="w-3 h-3 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={addFertilizer}
+        disabled={!newFertilizer.type || !newFertilizer.name || !newFertilizer.applicationDate}
+        className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+      >
+        Добавить
+      </button>
+    </div>
+
+    {formData.fertilizers.length > 0 && (
+      <div className="space-y-2">
+        {formData.fertilizers.map((fertilizer, index) => (
+          <div key={index} className="flex justify-between items-center bg-[#2D4A62] p-3 rounded-lg">
+            <div className="flex-1">
+              <div className="text-[#E8F4FF] text-sm font-medium">{fertilizer.name}</div>
+              <div className="text-[#8BA4B8] text-xs">
+                {fertilizer.type} • {fertilizer.amount} {fertilizer.unit} • {new Date(fertilizer.applicationDate).toLocaleDateString('ru-RU')}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => removeFertilizer(index)}
+              className="text-red-400 hover:text-red-300 text-sm ml-2 transition-colors"
+            >
+              Удалить
+            </button>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
+
+<div>
+  <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
+    Дополнительные заметки
+  </label>
+  <textarea
+    value={formData.notes}
+    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+    rows={3}
+    className="w-full px-3 py-2 bg-[#0F1F2F] border border-[#2D4A62] rounded-lg text-[#E8F4FF] placeholder-[#8BA4B8] focus:outline-none focus:border-[#3388ff] transition-colors"
+    placeholder="Дополнительная информация о поле..."
+  />
+</div>
+
+<div className="flex justify-end space-x-3 pt-4 border-t border-[#2D4A62]">
+  <button
+    type="button"
+    onClick={onClose}
+    className="px-6 py-2 bg-[#2D4A62] text-[#E8F4FF] rounded-lg hover:bg-[#3A5A7A] transition-colors"
+  >
+    Отмена
+  </button>
+  <button
+    type="submit"
+    className="px-6 py-2 bg-[#3388ff] text-white rounded-lg hover:bg-[#2970cc] transition-colors"
+  >
+    Сохранить поле
+  </button>
+</div>
         </form>
       </div>
     </div>
