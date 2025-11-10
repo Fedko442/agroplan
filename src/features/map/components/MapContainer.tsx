@@ -12,6 +12,8 @@ export type LeafletMapHandle = {
   highlightRegion: (regionId: string) => void;
   clearRegionHighlight: () => void;
   highlightRegions: (regionIds: string[]) => void;
+  searchCity: (cityName: string) => Promise<{ lat: number; lng: number; name: string } | null>;
+  flyToCity: (lat: number, lng: number, zoom?: number) => void;
 };
 
 interface LeafletMapProps {
@@ -19,14 +21,13 @@ interface LeafletMapProps {
   onMapReady?: () => void;
 }
 
-const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, onMapReady }, ref) => {
+const MapContainer = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, onMapReady }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
-
   const russiaBoundsRef = useRef<any>(null);
   const russiaGeoJsonRef = useRef<any>(null);
   const LRef = useRef<any>(null);
-  const regionLayersRef = useRef<Map<string, any>>(new Map()); 
+  const regionLayersRef = useRef<Map<string, any>>(new Map());
   const geoJsonDataRef = useRef<any>(null);
 
   useImperativeHandle(ref, () => ({
@@ -83,7 +84,6 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
                                (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi);
               if (intersect) inHole = !inHole;
             }
-            
             if (inHole) {
               inside = false;
               break;
@@ -242,7 +242,7 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
         });
       });
       regionLayersRef.current.clear();
-  
+      
       russiaGeoJsonRef.current.eachLayer((layer: any) => {
         if (layer.feature && layer.feature.properties) {
           const props = layer.feature.properties;
@@ -260,11 +260,56 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
         }
       });
     },
+    searchCity: async (cityName: string) => {
+      if (!cityName || cityName.trim().length === 0) return null;
+      
+      try {
+        const query = encodeURIComponent(`${cityName}, Россия`);
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ru&accept-language=ru`
+        );
+        
+        if (!response.ok) return null;
+        
+        const data = await response.json();
+        
+        if (data && data.length > 0) {
+          const result = data[0];
+          return {
+            lat: parseFloat(result.lat),
+            lng: parseFloat(result.lon),
+            name: result.display_name
+          };
+        }
+        
+        return null;
+      } catch (error) {
+        console.error("[MapContainer] Error searching city:", error);
+        return null;
+      }
+    },
+    flyToCity: (lat: number, lng: number, zoom: number = 12) => {
+      if (!mapRef.current || !LRef.current) return;
+      
+      const map = mapRef.current;
+      const targetLatLng = LRef.current.latLng(lat, lng);
+      
+      if (russiaBoundsRef.current && !russiaBoundsRef.current.contains(targetLatLng)) {
+        console.warn("[MapContainer] City is outside Russia bounds");
+        return;
+      }
+      
+      map.setView(targetLatLng, zoom, {
+        animate: true,
+        duration: 1.5,
+        easeLinearity: 0.25
+      });
+    },
     mapRef,
   }));
 
   useEffect(() => {
-    console.log("[LeafletMap] Initializing Leaflet map...");
+    console.log("[MapContainer] Initializing Leaflet map...");
     let resizeObserver: ResizeObserver | null = null;
     
     const initMap = async () => {
@@ -285,10 +330,9 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
 
         if (!containerRef.current) return;
 
-        // Границы России (приблизительные)
         const russiaBounds = L.latLngBounds(
           [41.2, 19.6],
-          [81.2, 180.0] 
+          [81.2, 180.0]
         );
 
         const map = L.map(containerRef.current, {
@@ -314,7 +358,7 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
         fetch("/russia_regions.geojson")
           .then((response) => response.json())
           .then((data) => {
-            geoJsonDataRef.current = data; 
+            geoJsonDataRef.current = data;
             
             const geoJsonLayer = L.geoJSON(data, {
               style: (feature) => {
@@ -335,7 +379,7 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
             }
           })
           .catch((err) => {
-            console.error("[LeafletMap] Error loading GeoJSON:", err);
+            console.error("[MapContainer] Error loading GeoJSON:", err);
           });
 
         mapRef.current = map;
@@ -377,11 +421,11 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
 
         setTimeout(() => {
           map.invalidateSize();
-          console.log("[LeafletMap] Map ready");
+          console.log("[MapContainer] Map ready");
           onMapReady?.();
         }, 100);
       } catch (err) {
-        console.error("[LeafletMap] Leaflet init error:", err);
+        console.error("[MapContainer] Leaflet init error:", err);
       }
     };
 
@@ -399,4 +443,6 @@ const LeafletMap = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className, o
   return <div ref={containerRef} className={className} />;
 });
 
-export default LeafletMap;
+MapContainer.displayName = 'MapContainer';
+
+export default MapContainer;

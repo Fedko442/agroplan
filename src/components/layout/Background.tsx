@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 
-export default function MapPage() {
+export default function Background() {
   const mapWrapperRef = useRef<HTMLDivElement>(null);
   const offsetRef = useRef({ x: 0, y: 0 });
   const targetRef = useRef({ x: 0, y: 0 });

@@ -49,6 +49,9 @@ html, body, #__next {
   overflow-y: auto;
   background-color: #0b1a3a;
   touch-action: pan-y pinch-zoom;
+}
+
+body *:not(input):not(textarea):not([contenteditable="true"]) {
   -webkit-user-select: none;
   user-select: none;
 }
@@ -77,4 +80,22 @@ html, body, #__next {
 
 body {
   scroll-behavior: smooth;
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.modal-content {
+  z-index: 10001;
+  position: relative;
 }
