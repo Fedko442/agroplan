@@ -163,7 +163,7 @@ export default function WeatherTab({ fieldId, coordinates }: WeatherTabProps) {
             <div className="text-[#8BA4B8] text-xs">Температура</div>
           </div>
           <div className="text-lg sm:text-xl font-bold text-blue-400">
-            {weatherData.temperature}°C
+            {weatherData.temperature}
           </div>
           <div className="text-xs text-[#8BA4B8] mt-1">
             {getTemperatureStatus(parseFloat(weatherData.temperature))}
@@ -176,7 +176,7 @@ export default function WeatherTab({ fieldId, coordinates }: WeatherTabProps) {
             <div className="text-[#8BA4B8] text-xs">Осадки</div>
           </div>
           <div className="text-lg sm:text-xl font-bold text-cyan-400">
-            {weatherData.precipitation} мм
+            {weatherData.precipitation}
           </div>
           <div className="text-xs text-[#8BA4B8] mt-1">
             {getPrecipitationStatus(parseFloat(weatherData.precipitation))}
@@ -189,7 +189,7 @@ export default function WeatherTab({ fieldId, coordinates }: WeatherTabProps) {
             <div className="text-[#8BA4B8] text-xs">Влажность</div>
           </div>
           <div className="text-lg sm:text-xl font-bold text-green-400">
-            {weatherData.humidity}%
+            {weatherData.humidity}
           </div>
           <div className="text-xs text-[#8BA4B8] mt-1">
             {getHumidityStatus(parseFloat(weatherData.humidity))}
@@ -202,7 +202,7 @@ export default function WeatherTab({ fieldId, coordinates }: WeatherTabProps) {
             <div className="text-[#8BA4B8] text-xs">Ветер</div>
           </div>
           <div className="text-lg sm:text-xl font-bold text-gray-300">
-            {weatherData.wind} м/с
+            {weatherData.wind}
           </div>
           <div className="text-xs text-[#8BA4B8] mt-1">
             {getWindStatus(parseFloat(weatherData.wind))}

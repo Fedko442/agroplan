@@ -355,33 +355,32 @@ const MapContainer = forwardRef<LeafletMapHandle, LeafletMapProps>(({ className,
           attribution: "&copy; OpenStreetMap contributors",
         }).addTo(map);
 
-        fetch("/russia_regions.geojson")
-          .then((response) => response.json())
-          .then((data) => {
-            geoJsonDataRef.current = data;
-            
-            const geoJsonLayer = L.geoJSON(data, {
-              style: (feature) => {
-                return {
-                  color: "#3388ff",
-                  weight: 2,
-                  fill: false,
-                  fillOpacity: 0,
-                };
-              },
-            }).addTo(map);
-            russiaGeoJsonRef.current = geoJsonLayer;
-            russiaBoundsRef.current = geoJsonLayer.getBounds();
-            
-            if (russiaBoundsRef.current) {
-              map.setMaxBounds(russiaBoundsRef.current);
-              map.setMaxBoundsViscosity(1.0);
-            }
-          })
-          .catch((err) => {
-            console.error("[MapContainer] Error loading GeoJSON:", err);
-          });
+fetch("/russia_regions.geojson")
+  .then((response) => response.json())
+  .then((data) => {
+    geoJsonDataRef.current = data;
+    
+    const geoJsonLayer = L.geoJSON(data, {
+      style: (feature) => {
+        return {
+          color: "#3388ff",
+          weight: 2,
+          fill: false,
+          fillOpacity: 0,
+        };
+      },
+    }).addTo(map);
+    russiaGeoJsonRef.current = geoJsonLayer;
+    russiaBoundsRef.current = geoJsonLayer.getBounds();
 
+    if (russiaBoundsRef.current && typeof map.setMaxBoundsViscosity === 'function') {
+      map.setMaxBounds(russiaBoundsRef.current);
+      map.setMaxBoundsViscosity(1.0);
+    }
+  })
+  .catch((err) => {
+    console.error("[MapContainer] Error loading GeoJSON:", err);
+  });
         mapRef.current = map;
         
         const enforceBounds = () => {

@@ -117,12 +117,12 @@ export default function SatelliteTab({ coords }: SatelliteTabProps) {
         <h3 className="text-base sm:text-lg md:text-xl lg:text-lg xl:text-2xl 3xl:text-3xl font-semibold mb-3 sm:mb-4">
           Спутниковые индексы
         </h3>
-<div className="flex-1 flex flex-col items-center justify-center">
-  <div className="text-[#8BA4B8] text-center mb-4">
-    <div className="flex justify-center mb-2">
-      <SatelliteIcon className="w-8 h-8 sm:w-10 sm:h-10" />
-    </div>
-    <div className="text-xs sm:text-sm px-2">
+        <div className="flex-1 flex flex-col items-center justify-center">
+          <div className="text-[#8BA4B8] text-center mb-4">
+            <div className="flex justify-center mb-2">
+              <SatelliteIcon className="w-8 h-8 sm:w-10 sm:h-10" />
+            </div>
+            <div className="text-xs sm:text-sm px-2">
               Нарисуйте поле на карте<br />для получения спутниковых данных
             </div>
           </div>
@@ -215,7 +215,7 @@ export default function SatelliteTab({ coords }: SatelliteTabProps) {
   }
 
   return (
-    <div className="text-[#E8F4FF] h-full flex flex-col">
+    <div className="text-[#E8F4FF] h-full flex flex-col min-h-0">
       <div className="flex justify-between items-start mb-3 sm:mb-4 flex-col sm:flex-row gap-2 sm:gap-0">
         <h3 className="text-base sm:text-lg md:text-xl lg:text-lg xl:text-2xl 3xl:text-3xl font-semibold">
           Спутниковые индексы
@@ -245,70 +245,73 @@ export default function SatelliteTab({ coords }: SatelliteTabProps) {
         </div>
       </div>
 
-      {satelliteData.image_url && (
-        <div className="mb-3 sm:mb-4">
-          <SatelliteImagery 
-            imageUrl={satelliteData.image_url}
-            coordinates={coords!}
-            source={satelliteData.source}
-          />
-        </div>
-      )}
+      <div className="flex-1 min-h-0 overflow-y-auto space-y-3 sm:space-y-4">
+        {satelliteData.image_url && (
+          <div>
+            <SatelliteImagery 
+              imageUrl={satelliteData.image_url}
+              coordinates={coords!}
+              source={satelliteData.source}
+            />
+          </div>
+        )}
 
-      <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3 mb-3 sm:mb-4">
-        {satelliteData.indices.map((index, i) => (
-          <div key={i} className="bg-[#1A2E42] p-3 sm:p-4 rounded-lg border border-[#2D4A62]">
-            <div className="flex items-center mb-2">
-              <div className={`w-3 h-3 rounded-full mr-2 flex-shrink-0 ${index.color}`}></div>
-              <div className="text-[#8BA4B8] text-xs truncate">{index.name}</div>
-            </div>
-            <div className={`text-lg sm:text-xl font-bold ${
-              index.name.includes('NDVI') ? 'text-green-400' :
-              index.name.includes('NDWI') ? 'text-blue-400' : 'text-yellow-400'
-            }`}>
-              {index.value.toFixed(3)}
-            </div>
-            <div className="text-xs text-[#8BA4B8] mt-1 line-clamp-1">
-              {getIndexStatus(index.name, index.value)}
-            </div>
-            
-            <div className="w-full bg-[#2D4A62] rounded-full h-1.5 mt-2 overflow-hidden">
-              <div 
-                className={`h-1.5 rounded-full transition-all duration-500 ${
-                  index.name.includes('NDVI') ? getNDVIColor(index.value) :
-                  index.name.includes('NDWI') ? getNDWIColor(index.value) :
-                  getMSIColor(index.value)
-                }`}
-                style={{ width: `${Math.min(index.value * 100, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="bg-[#1A2E42] p-3 sm:p-4 rounded-lg border border-[#2D4A62] flex-1">
-        <div className="flex items-center mb-3">
-          <div className="text-[#8BA4B8] text-sm font-medium flex items-center">
-            <Sprout className="w-4 h-4 mr-2" />
-            Агрономические рекомендации
-          </div>
-        </div>
-        
-        <div className="space-y-2 max-h-32 overflow-y-auto">
-          {getCombinedRecommendations(satelliteData.indices).map((rec, index) => (
-            <div key={index} className="text-xs sm:text-sm leading-relaxed flex items-start p-2 bg-[#2D4A62] rounded">
-              <span className="text-green-400 mr-2 flex-shrink-0">•</span>
-              <span className="flex-1">{rec}</span>
+        <div className="grid grid-cols-1 xs:grid-cols-2 gap-2 sm:gap-3">
+          {satelliteData.indices.map((index, i) => (
+            <div key={i} className="bg-[#1A2E42] p-3 sm:p-4 rounded-lg border border-[#2D4A62]">
+              <div className="flex items-center mb-2">
+                <div className={`w-3 h-3 rounded-full mr-2 flex-shrink-0 ${index.color}`}></div>
+                <div className="text-[#8BA4B8] text-xs truncate">{index.name}</div>
+              </div>
+              <div className={`text-lg sm:text-xl font-bold ${
+                index.name.includes('NDVI') ? 'text-green-400' :
+                index.name.includes('NDWI') ? 'text-blue-400' : 'text-yellow-400'
+              }`}>
+                {index.value.toFixed(3)}
+              </div>
+              <div className="text-xs text-[#8BA4B8] mt-1 line-clamp-1">
+                {getIndexStatus(index.name, index.value)}
+              </div>
+              
+              <div className="w-full bg-[#2D4A62] rounded-full h-1.5 mt-2 overflow-hidden">
+                <div 
+                  className={`h-1.5 rounded-full transition-all duration-500 ${
+                    index.name.includes('NDVI') ? getNDVIColor(index.value) :
+                    index.name.includes('NDWI') ? getNDWIColor(index.value) :
+                    getMSIColor(index.value)
+                  }`}
+                  style={{ width: `${Math.min(index.value * 100, 100)}%` }}
+                ></div>
+              </div>
             </div>
           ))}
         </div>
 
-        <div className="mt-3 pt-3 border-t border-[#2D4A62] text-xs text-[#8BA4B8]">
-          <div className="flex justify-between items-center">
-            <span className="flex items-center">
-              <Clock className="w-3 h-3 mr-1" />
-              Обновлено: {new Date().toLocaleTimeString()}
-            </span>
-            <span>Следующее обновление: через 5 дней</span>
+        <div className="bg-[#1A2E42] p-3 sm:p-4 rounded-lg border border-[#2D4A62]">
+          <div className="flex items-center mb-3">
+            <div className="text-[#8BA4B8] text-sm font-medium flex items-center">
+              <Sprout className="w-4 h-4 mr-2" />
+              Агрономические рекомендации
+            </div>
+          </div>
+          
+          <div className="space-y-2 max-h-40 overflow-y-auto"> {/* ← Увеличена максимальная высота */}
+            {getCombinedRecommendations(satelliteData.indices).map((rec, index) => (
+              <div key={index} className="text-xs sm:text-sm leading-relaxed flex items-start p-2 bg-[#2D4A62] rounded">
+                <span className="text-green-400 mr-2 flex-shrink-0">•</span>
+                <span className="flex-1">{rec}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 pt-3 border-t border-[#2D4A62] text-xs text-[#8BA4B8]">
+            <div className="flex justify-between items-center">
+              <span className="flex items-center">
+                <Clock className="w-3 h-3 mr-1" />
+                Обновлено: {new Date().toLocaleTimeString()}
+              </span>
+              <span>Следующее обновление: через 5 дней</span>
+            </div>
           </div>
         </div>
       </div>

@@ -39,30 +39,14 @@ export default function Background() {
   }, []);
 
   return (
-    <div style={{ 
-      overflow: "hidden", 
-      height: "100vh", 
-      width: "100vw",
-      position: "fixed", 
-      top: 0,
-      left: 0,
-      backgroundColor: "#00242F",
-      zIndex: 10
-    }}>
-      <div
-        ref={mapWrapperRef}
-        style={{
-          position: "absolute",
-          top: "-25%",
-          left: "-25%",
-          height: "150%",
-          width: "150%",
-          backgroundImage: "url('/backround.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-        }}
-      />
-    </div>
+<div
+  className="overflow-hidden h-screen w-screen fixed top-0 left-0 bg-[#00242F] light:bg-[#f0f8ff] z-10 pointer-events-none"
+>
+  <div
+    ref={mapWrapperRef}
+    className="map-bg absolute top-[-25%] left-[-25%] h-[150%] w-[150%] bg-[url('/backround.png')] bg-cover bg-center bg-no-repeat"
+  />
+</div>
+
   );
 }

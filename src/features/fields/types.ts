@@ -6,6 +6,7 @@ export type LLPoint = {
 };
 
 export type FieldData = {
+  id: string;
   name: string;
   area: number;
   crop: string;
@@ -18,6 +19,9 @@ export type FieldData = {
   plannedOperations: PlannedOperation[];
   fertilizers: Fertilizer[];
   irrigationSystem: IrrigationSystem;
+  coordinates: { lat: number; lng: number };
+  polygon: LLPoint[];
+  region?: string; 
 };
 
 export type SoilData = {
