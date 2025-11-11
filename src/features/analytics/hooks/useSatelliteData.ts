@@ -1,4 +1,3 @@
-// useSatelliteData.ts
 import { useState, useEffect } from 'react';
 import { SatelliteData } from '../types';
 import { useSatelliteApi } from '../services/useSatelliteApi';
@@ -14,7 +13,7 @@ export const useSatelliteData = (coords: Coordinates | null) => {
   const [error, setError] = useState<string | null>(null);
   const { fetchSatelliteData } = useSatelliteApi();
 
-  useEffect(() => {
+   useEffect(() => {
     if (!coords) {
       setSatelliteData(null);
       return;
@@ -37,7 +36,7 @@ export const useSatelliteData = (coords: Coordinates | null) => {
               source: apiData.source
             },
             {
-              name: "NDWI — активность влаги",
+              name: "NDWI — активность влаги", 
               value: apiData.ndwi ?? 0,
               color: "bg-blue-500",
               recommendations: getNDWIRecommendations(apiData.ndwi ?? 0),
@@ -50,7 +49,11 @@ export const useSatelliteData = (coords: Coordinates | null) => {
               recommendations: getMSIRecommendations(apiData.msi ?? 0),
               source: apiData.source
             }
-          ]
+          ],
+          image_url: apiData.image_url,
+          source: apiData.source,
+          vegetation_health: apiData.vegetation_health,
+          coordinates: coords
         });
         setLoading(false);
       })
@@ -63,10 +66,6 @@ export const useSatelliteData = (coords: Coordinates | null) => {
 
   return { satelliteData, loading, error };
 };
-
-// ==== Рекомендации ==== //
-
-// NDVI
 const getNDVIRecommendations = (ndvi: number): string[] => {
   if (ndvi > 0.75) return [
     "Растительный покров в пике продуктивности",
@@ -86,7 +85,6 @@ const getNDVIRecommendations = (ndvi: number): string[] => {
   ];
 };
 
-// NDWI
 const getNDWIRecommendations = (ndwi: number): string[] => {
   if (ndwi > 0.5) return [
     "Почва насыщена влагой",
@@ -102,7 +100,6 @@ const getNDWIRecommendations = (ndwi: number): string[] => {
   ];
 };
 
-// MSI
 const getMSIRecommendations = (msi: number): string[] => {
   if (msi < 0.2) return [
     "Стрессовые факторы отсутствуют",

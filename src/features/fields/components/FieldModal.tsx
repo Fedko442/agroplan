@@ -12,8 +12,8 @@ type FieldModalProps = {
   onSave: (fieldData: FieldData) => void;
   points: LLPoint[];
   region?: string;
+  initialData?: FieldData;
 };
-
 type Crop = {
   id: number;
   name: string;
@@ -22,7 +22,6 @@ type Crop = {
   type: string;
 };
 
-// Добавим список всех типов почв из minerals.json
 const ALL_SOIL_TYPES = Object.keys(mineralsData.агрохимия || {});
 
 const createCropCategories = (crops: Crop[]) => {
@@ -70,7 +69,6 @@ const IRRIGATION_TYPES = [
   "Дождевание", "Капельное", "Арычное", "Подпочвенное", "Поверхностное"
 ];
 
-// Функция для получения случайного значения из диапазона
 const getRandomFromRange = (range: string): number => {
   if (range.includes('–')) {
     const [minStr, maxStr] = range.split('–');
@@ -78,8 +76,7 @@ const getRandomFromRange = (range: string): number => {
     const max = parseFloat(maxStr.replace(',', '.'));
     return min + Math.random() * (max - min);
   }
-  
-  // Обработка специальных значений
+
   const specialValues: {[key: string]: number} = {
     'variable_low': 0.5 + Math.random() * 1.5,
     'variable_med': 1.5 + Math.random() * 2,
@@ -91,26 +88,23 @@ const getRandomFromRange = (range: string): number => {
   return specialValues[range] || 0;
 };
 
-// Функция для получения данных почвы по типу
 const getSoilDataByType = (soilType: string): SoilData | null => {
   if (!soilType) return null;
   
   const minerals = mineralsData.агрохимия[soilType];
   if (!minerals) return null;
-  
-  // Сгенерировать данные почвы на основе минерального состава
+
   const soilData: SoilData = {
     ph: parseFloat(getRandomFromRange(minerals.pH).toFixed(1)),
     organicCarbon: parseFloat(getRandomFromRange(minerals.humus_pct).toFixed(1)),
-    clay: Math.floor(20 + Math.random() * 30), // 20-50%
-    sand: Math.floor(30 + Math.random() * 40), // 30-70%
-    silt: Math.floor(10 + Math.random() * 30), // 10-40%
+    clay: Math.floor(20 + Math.random() * 30),
+    sand: Math.floor(30 + Math.random() * 40), 
+    silt: Math.floor(10 + Math.random() * 30),
     nitrogen: parseFloat(getRandomFromRange(minerals.N_total_pct).toFixed(3)),
     phosphorus: parseFloat(getRandomFromRange(minerals.P_mgkg).toFixed(1)),
     potassium: parseFloat(getRandomFromRange(minerals.K_mgkg).toFixed(1))
   };
-  
-  // Нормализовать проценты глины, песка и ила чтобы сумма была 100%
+
   const total = soilData.clay + soilData.sand + soilData.silt;
   soilData.clay = Math.round((soilData.clay / total) * 100);
   soilData.sand = Math.round((soilData.sand / total) * 100);
@@ -119,15 +113,12 @@ const getSoilDataByType = (soilType: string): SoilData | null => {
   return soilData;
 };
 
-// Функция для получения данных почвы по региону
 const getSoilDataForRegion = (regionName: string): { soilType: string; soilData: SoilData } | null => {
   if (!regionName) return null;
-  
-  // Найти регион в данных
+
   const regionInfo = soilsData.find(item => item.region === regionName);
   if (!regionInfo || !regionInfo.soil || regionInfo.soil.length === 0) return null;
-  
-  // Выбрать случайный тип почвы для этого региона
+
   const soilTypes = regionInfo.soil;
   const randomSoilType = soilTypes[Math.floor(Math.random() * soilTypes.length)];
   
@@ -152,23 +143,39 @@ const searchCrops = (query: string, crops: Crop[]): Crop[] => {
   );
 };
 
-export default function FieldModal({ isOpen, onClose, onSave, points, region }: FieldModalProps) {
-  const [formData, setFormData] = useState<FieldData>({
-    name: "",
-    area: 0,
-    crop: "",
-    isActive: false,
-    soilType: "",
-    segmentLengths: [],
-    notes: "",
-    cropRotationHistory: "",
-    plannedOperations: [],
-    fertilizers: [],
-    irrigationSystem: {
-      hasSystem: false,
-      type: "",
-      description: ""
+export default function FieldModal({ isOpen, onClose, onSave, points, region, initialData }: FieldModalProps) {
+  const [formData, setFormData] = useState<FieldData>(() => {
+    if (initialData) {
+      return {
+        ...initialData,
+        segmentLengths: initialData.segmentLengths || [],
+        plannedOperations: initialData.plannedOperations || [],
+        fertilizers: initialData.fertilizers || [],
+        irrigationSystem: initialData.irrigationSystem || {
+          hasSystem: false,
+          type: "",
+          description: ""
+        }
+      };
     }
+    
+    return {
+      name: "",
+      area: 0,
+      crop: "",
+      isActive: false,
+      soilType: "",
+      segmentLengths: [],
+      notes: "",
+      cropRotationHistory: "",
+      plannedOperations: [],
+      fertilizers: [],
+      irrigationSystem: {
+        hasSystem: false,
+        type: "",
+        description: ""
+      }
+    };
   });
 
   const [selectedCategory, setSelectedCategory] = useState<string>("");
@@ -184,21 +191,114 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     unit: "кг/га"
   });
   const [isLoadingSoil, setIsLoadingSoil] = useState(false);
-  const [soilData, setSoilData] = useState<SoilData | null>(null);
-  const [manualSegmentLengths, setManualSegmentLengths] = useState<{ segment: string; length: number }[]>([]);
+  const [soilData, setSoilData] = useState<SoilData | null>(initialData?.soilData || null);
+  const [manualSegmentLengths, setManualSegmentLengths] = useState<{ segment: string; length: number }[]>(() => {
+    if (initialData?.segmentLengths && initialData.segmentLengths.length > 0) {
+      return initialData.segmentLengths;
+    }
+
+    return points.map((point, index) => {
+      const nextIndex = (index + 1) % points.length;
+      return {
+        segment: `${point.name || `Т${index+1}`}-${points[nextIndex].name || `Т${nextIndex+1}`}`,
+        length: 100
+      };
+    });
+  });
   const [availableSoilTypes, setAvailableSoilTypes] = useState<string[]>([]);
   const [isEditingSoil, setIsEditingSoil] = useState(false);
   
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<Crop[]>([]);
   const [showSearchResults, setShowSearchResults] = useState(false);
-  const [selectedCropDetails, setSelectedCropDetails] = useState<Crop | null>(null);
+  const [selectedCropDetails, setSelectedCropDetails] = useState<Crop | null>(() => {
+    if (initialData?.crop) {
+      return ALL_CROPS.find(crop => crop.name === initialData.crop) || null;
+    }
+    return null;
+  });
 
   const sideLengths = manualSegmentLengths.map(segment => segment.length);
   const { area: calculatedArea } = useFieldArea({ 
     points, 
     sides: sideLengths 
   });
+
+  useEffect(() => {
+    if (isOpen && points.length >= 3 && !initialData) {
+      const initialSegments = points.map((point, index) => {
+        const nextIndex = (index + 1) % points.length;
+        return {
+          segment: `${point.name || `Т${index+1}`}-${points[nextIndex].name || `Т${nextIndex+1}`}`,
+          length: 100
+        };
+      });
+      
+      setManualSegmentLengths(initialSegments);
+      
+      setFormData(prev => ({
+        ...prev,
+        segmentLengths: initialSegments,
+        area: calculatedArea
+      }));
+
+      if (region) {
+        loadSoilDataForRegion(region);
+      }
+    }
+  }, [isOpen, points, region, initialData]);
+
+  useEffect(() => {
+    if (manualSegmentLengths.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        area: calculatedArea
+      }));
+    }
+  }, [calculatedArea, manualSegmentLengths.length]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const results = searchCrops(searchQuery, ALL_CROPS);
+      setSearchResults(results);
+      setShowSearchResults(true);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (isOpen && initialData) {
+      if (initialData.crop) {
+        const cropDetails = ALL_CROPS.find(crop => crop.name === initialData.crop);
+        setSelectedCropDetails(cropDetails || null);
+      }
+
+      if (initialData.soilData) {
+        setSoilData(initialData.soilData);
+      }
+
+      if (region) {
+        const regionInfo = soilsData.find(item => item.region === region);
+        if (regionInfo) {
+          setAvailableSoilTypes(regionInfo.soil);
+        }
+      }
+    }
+  }, [isOpen, initialData, region]);
 
   useEffect(() => {
     if (isOpen && points.length >= 3) {
@@ -218,7 +318,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         area: calculatedArea
       }));
 
-      // Загрузить данные почвы для региона
       if (region) {
         loadSoilDataForRegion(region);
       }
@@ -276,8 +375,7 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
           soilType: soilInfo.soilType,
           soilData: soilInfo.soilData
         }));
-        
-        // Показать доступные типы почв для этого региона
+
         const regionInfo = soilsData.find(item => item.region === regionName);
         if (regionInfo) {
           setAvailableSoilTypes(regionInfo.soil);
@@ -313,7 +411,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
       [field]: value
     };
 
-    // Нормализовать гранулометрический состав если меняем глину/песок/ил
     if (['clay', 'sand', 'silt'].includes(field)) {
       const total = updatedSoilData.clay + updatedSoilData.sand + updatedSoilData.silt;
       updatedSoilData.clay = Math.round((updatedSoilData.clay / total) * 100);
@@ -418,13 +515,11 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     return;
   }
   
-  // Берем первую точку полигона для погоды
   const firstPoint = points[0];
-  
-  // Добавляем координаты в данные поля
+
   const fieldDataWithCoords = {
     ...formData,
-    coordinates: { lat: firstPoint.lat, lng: firstPoint.lng } // ← ПЕРВАЯ ТОЧКА!
+    coordinates: { lat: firstPoint.lat, lng: firstPoint.lng } 
   };
   
   onSave(fieldDataWithCoords);
@@ -453,7 +548,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* ... остальные поля (название, площадь, регион, длины сторон) остаются без изменений ... */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
@@ -535,7 +629,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             </div>
           </div>
 
-         {/* ОБНОВЛЕННАЯ СЕКЦИЯ: Тип почвы и характеристики */}
 <div>
   <div className="flex justify-between items-center mb-2">
     <label className="block text-sm font-medium text-[#8BA4B8]">
@@ -570,7 +663,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
           <option key={soilType} value={soilType}>{soilType}</option>
         ))}
       </select>
-      {/* Кастомная стрелка */}
       <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
         <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -751,7 +843,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
     )}
   </div>
 </div>
-          {/* Остальной код остается таким же как был */}
           <div className="flex items-center space-x-3">
             <input
               type="checkbox"
@@ -827,7 +918,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         <option key={category} value={category}>{category}</option>
       ))}
     </select>
-    {/* Кастомная стрелка */}
     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
       <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -907,7 +997,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             </div>
           )}
 
-          {/* Остальные секции (история севооборота, орошение, работы, удобрения, заметки) остаются без изменений */}
           <div>
             <label className="block text-sm font-medium text-[#8BA4B8] mb-2">
               История севооборота (что росло в предыдущие годы)
@@ -964,7 +1053,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
         <option key={type} value={type}>{type}</option>
       ))}
     </select>
-    {/* Кастомная стрелка */}
     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
       <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1013,7 +1101,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             <option key={op} value={op}>{op}</option>
           ))}
         </select>
-        {/* Кастомная стрелка */}
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
           <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1078,7 +1165,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             <option key={fert} value={fert}>{fert}</option>
           ))}
         </select>
-        {/* Кастомная стрелка */}
         <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
           <svg className="w-4 h-4 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -1120,7 +1206,6 @@ export default function FieldModal({ isOpen, onClose, onSave, points, region }: 
             <option value="л/га">л/га</option>
             <option value="ц/га">ц/га</option>
           </select>
-          {/* Кастомная стрелка для маленького селекта */}
           <div className="absolute right-1 top-1/2 transform -translate-y-1/2 pointer-events-none -translate-x-0.5">
             <svg className="w-3 h-3 text-[#8BA4B8]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

@@ -15,12 +15,13 @@ const getNextPointName = (index: number): string => {
   return letters[index % letters.length];
 };
 
-// Добавляем интерфейс для пропсов
 interface FieldCanvasWithMapProps {
-  onFieldCreated: (coordinates: { lat: number; lng: number }) => void;
+  onFieldCreated: (fieldData: FieldData) => void;
+  onSave?: () => void;
+  selectedField?: FieldData | null;
 }
 
-export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanvasWithMapProps) {
+export default function FieldCanvasWithMap({ onFieldCreated, onSave, selectedField }: FieldCanvasWithMapProps) {
   const mapRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,7 +185,7 @@ export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanv
       try {
         map.removeLayer(marker);
       } catch (e) {
-
+        // Ignore errors
       }
     });
     markersRef.current = [];
@@ -276,17 +277,25 @@ export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanv
 
     if (currentPoints.length >= 3 && checkShapeCompletion(currentPoints, x, y)) {
       const completedShape = [...currentPoints];
-      setShapes([...shapes, completedShape]);
+      
+      const region = findFieldRegion(completedShape);
+      setPendingRegion(region?.name || "Неизвестный регион");
+      setPendingShape(completedShape);
+      setShowFieldModal(true);
+      
       setCurrentPoints([]);
       setMouseCanvasPos(null);
-      
-      handleShapeComplete(completedShape);
       return;
     }
 
     if (hit) {
       const newShape: LLPoint[] = [...currentPoints, { lat: hit.lat, lng: hit.lng, name: hit.name }];
-      setShapes([...shapes, newShape]);
+      
+      const region = findFieldRegion(newShape);
+      setPendingRegion(region?.name || "Неизвестный регион");
+      setPendingShape(newShape);
+      setShowFieldModal(true);
+      
       setCurrentPoints([]);
       setMouseCanvasPos(null);
       return;
@@ -322,13 +331,6 @@ export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanv
     return mapRef.current.findRegionForPoint(center.lat, center.lng);
   }, [getShapeCenter]);
 
- const handleShapeComplete = (points: LLPoint[]) => {
-  if (points.length > 0) {
-    const firstPoint = points[0];
-    onFieldCreated({ lat: firstPoint.lat, lng: firstPoint.lng });
-  }
-};
-
   const sendToBackend = useCallback((shape: LLPoint[], fieldData: FieldData) => {
     const region = findFieldRegion(shape);
     
@@ -350,9 +352,7 @@ export default function FieldCanvasWithMap({ onFieldCreated, onSave }: FieldCanv
     console.log("[FieldCanvasWithMap] Sending to backend:", shapeData);
     return shapeData;
   }, [findFieldRegion]);
-interface FieldCanvasWithMapProps {
-  onFieldCreated?: (coordinates: {lat: number, lng: number}) => void;
-}
+
   const handleSaveClick = () => {
     if (currentPoints.length >= 3) {
       const shapeWithNames = currentPoints.map((point, index) => ({
@@ -380,6 +380,14 @@ interface FieldCanvasWithMapProps {
   };
 
   const handleFieldSave = useCallback((fieldData: FieldData) => {
+    // Добавляем координаты первой точки в данные поля
+    const fieldDataWithCoords = {
+      ...fieldData,
+      coordinates: pendingShape.length > 0 
+        ? { lat: pendingShape[0].lat, lng: pendingShape[0].lng }
+        : undefined
+    };
+
     setShapes(prev => [...prev, pendingShape]);
     
     const region = findFieldRegion(pendingShape);
@@ -388,15 +396,19 @@ interface FieldCanvasWithMapProps {
       console.log("[FieldCanvasWithMap] Field in region:", region.name);
     }
     
-    sendToBackend(pendingShape, fieldData);
+    sendToBackend(pendingShape, fieldDataWithCoords);
+    
+    // Передаем полные данные поля в родительский компонент
+    onFieldCreated(fieldDataWithCoords);
     onSave?.();
-    console.log("[FieldCanvasWithMap] Saved shape with field data");
+    
+    console.log("[FieldCanvasWithMap] Saved shape with field data:", fieldDataWithCoords);
     
     setShowFieldModal(false);
     setPendingShape([]);
     setPendingRegion("");
     setDrawingMode(false);
-  }, [pendingShape, findFieldRegion, sendToBackend, onSave]);
+  }, [pendingShape, findFieldRegion, sendToBackend, onFieldCreated, onSave]);
 
   const handleFieldModalClose = useCallback(() => {
     setShowFieldModal(false);
@@ -414,7 +426,7 @@ interface FieldCanvasWithMapProps {
         try {
           mapRef.current.mapRef.current.removeLayer(marker);
         } catch (e) {
-
+          // Ignore errors
         }
       });
     }
@@ -486,7 +498,7 @@ interface FieldCanvasWithMapProps {
           try {
             mapRef.current.mapRef.current.removeLayer(marker);
           } catch (e) {
-
+            // Ignore errors
           }
         });
       }
@@ -507,7 +519,7 @@ interface FieldCanvasWithMapProps {
           position: "absolute", 
           inset: 0, 
           pointerEvents: "none", 
-          zIndex: 10 
+          zIndex: 1 
         }}
       />
 
@@ -517,7 +529,7 @@ interface FieldCanvasWithMapProps {
             position: "absolute", 
             inset: 0, 
             cursor: "crosshair",
-            zIndex: 11,
+            zIndex: 2,
             pointerEvents: "auto"
           }}
           onClick={handleClick}
@@ -526,31 +538,31 @@ interface FieldCanvasWithMapProps {
         />
       )}
 
-     <div className="absolute top-4 right-4 flex flex-col gap-2 z-[9999] pointer-events-auto">
-  <button
-    onClick={handleSaveClick}
-    className={`w-12 h-12 rounded-lg shadow-lg transition-colors pointer-events-auto flex items-center justify-center ${
-      drawingMode 
-        ? "bg-green-600 hover:bg-green-700 text-white" 
-        : "bg-blue-600 hover:bg-blue-700 text-white"
-    }`}
-    title={drawingMode ? "Завершить рисование" : "Начать рисование"}
-  >
-    {drawingMode ? (
-      <Check size={24} />
-    ) : (
-      <Pencil size={24} />
-    )}
-  </button>
-  
-  <button
-    onClick={clearAllShapes}
-    className="w-12 h-12 bg-gray-200 rounded-lg shadow-lg hover:bg-gray-300 transition-colors pointer-events-auto flex items-center justify-center"
-    title="Очистить все фигуры"
-  >
-    <Trash2 size={24} />
-  </button>
-</div>
+      <div className="absolute top-4 right-4 flex flex-col gap-2 z-10 pointer-events-auto">
+        <button
+          onClick={handleSaveClick}
+          className={`w-12 h-12 rounded-lg shadow-lg transition-colors pointer-events-auto flex items-center justify-center ${
+            drawingMode 
+              ? "bg-green-600 hover:bg-green-700 text-white" 
+              : "bg-blue-600 hover:bg-blue-700 text-white"
+          }`}
+          title={drawingMode ? "Завершить рисование" : "Начать рисование"}
+        >
+          {drawingMode ? (
+            <Check size={24} />
+          ) : (
+            <Pencil size={24} />
+          )}
+        </button>
+        
+        <button
+          onClick={clearAllShapes}
+          className="w-12 h-12 bg-gray-200 rounded-lg shadow-lg hover:bg-gray-300 transition-colors pointer-events-auto flex items-center justify-center"
+          title="Очистить все фигуры"
+        >
+          <Trash2 size={24} />
+        </button>
+      </div>
 
       <FieldModal
         isOpen={showFieldModal}
@@ -559,8 +571,9 @@ interface FieldCanvasWithMapProps {
         points={pendingShape}
         region={pendingRegion}
       />
+      
       {shapes.length > 0 && (
-        <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-2 rounded-lg shadow-lg z-[9999] pointer-events-none">
+        <div className="absolute bottom-4 left-4 bg-green-600 text-white px-3 py-2 rounded-lg shadow-lg z-10 pointer-events-none">
           <div className="text-sm font-medium">Сохраненные поля: {shapes.length}</div>
           <div className="text-xs opacity-80">
             {currentZoom < 6 ? "Маркеры отображены" : "Маркеры скрыты"}
