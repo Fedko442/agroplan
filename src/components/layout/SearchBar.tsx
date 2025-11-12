@@ -134,23 +134,23 @@ export default function SearchBar() {
                 </button>
               </li>
               <li>
-                <button
-                  onClick={() => handleNavigation("/culture-history")}
-                  className="flex items-center w-full p-3 text-[#8BA4B8] light:text-gray-600 hover:bg-[#2D4A62] light:hover:bg-gray-100 hover:text-[#E8F4FF] light:hover:text-gray-900 rounded-lg transition-colors"
-                >
-                  <History className="w-5 h-5 mr-3" />
-                  <span>История культур</span>
-                </button>
-              </li>
+  <button
+    onClick={() => handleNavigation("/history")}
+    className="flex items-center w-full p-3 text-[#8BA4B8] light:text-gray-600 hover:bg-[#2D4A62] light:hover:bg-gray-100 hover:text-[#E8F4FF] light:hover:text-gray-900 rounded-lg transition-colors"
+  >
+    <History className="w-5 h-5 mr-3" />
+    <span>Севооборот</span>
+  </button>
+</li>
               <li>
-                <button
-                  onClick={() => handleNavigation("/economic-calculator")}
-                  className="flex items-center w-full p-3 text-[#8BA4B8] light:text-gray-600 hover:bg-[#2D4A62] light:hover:bg-gray-100 hover:text-[#E8F4FF] light:hover:text-gray-900 rounded-lg transition-colors"
-                >
-                  <Calculator className="w-5 h-5 mr-3" />
-                  <span>Эко-калькулятор</span>
-                </button>
-              </li>
+  <button
+    onClick={() => handleNavigation("/eco")}
+    className="flex items-center w-full p-3 text-[#8BA4B8] light:text-gray-600 hover:bg-[#2D4A62] light:hover:bg-gray-100 hover:text-[#E8F4FF] light:hover:text-gray-900 rounded-lg transition-colors"
+  >
+    <Calculator className="w-5 h-5 mr-3" />
+    <span>Эко-калькулятор</span>
+  </button>
+</li>
             </ul>
           </nav>
         </div>
