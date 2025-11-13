@@ -1,29 +1,12 @@
-'use client';
+// CropSearch.tsx
+"use client";
 
-import { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import { useCropsSearch } from '../hooks/useCropsSearch';
-import { 
-  Search, 
-  X, 
-  Sprout, 
-  Wheat, 
-  Star, 
-  Calculator, 
-  BarChart3, 
-  Tag, 
-  Hash, 
-  Database, 
-  AlertTriangle,
-  TrendingUp,
-  TrendingDown,
-  Leaf
-} from 'lucide-react';
 import './crop-search.css';
 
-export const CropSearch = () => {
-  const cropsListRef = useRef<HTMLDivElement>(null);
+export const CropSearch: React.FC = () => {
   const {
-    crops,
     filteredCrops,
     selectedCrop,
     searchQuery,
@@ -31,264 +14,306 @@ export const CropSearch = () => {
     economics,
     loading,
     error,
+    prices,
+    pricesLoading,
+    totalCropsCount,
+    mainCropsCount,
+    rareCropsCount,
     setSelectedCrop,
     setArea,
     setSearchQuery,
-    handleSearchChange
+    handleSearchChange,
+    refreshPrices
   } = useCropsSearch();
-  const stats = useMemo(() => ({
-    total: crops.length,
-    main: crops.filter(c => c.type === 'основная').length,
-    rare: crops.filter(c => c.type === 'редкая').length,
-  }), [crops]);
 
-  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    handleSearchChange(value, cropsListRef);
+  const cropsListRef = useRef<HTMLDivElement>(null);
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    handleSearchChange(query, cropsListRef);
   };
 
-  const handleClearSearch = () => {
-    setSearchQuery('');
+  const getCropPrice = (cropId: string) => {
+    return prices.find(price => price.commodity === cropId);
   };
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('ru-RU').format(value) + ' ₽';
+  // Функция для расчета экономики с отрицательной прибылью в первый месяц
+  const calculateEconomics = (crop: any, area: number, price: any) => {
+    if (!price || area <= 0) return null;
+
+    const revenue = price.price * crop.yield * area;
+    // Увеличиваем расходы чтобы прибыль была отрицательной в первый месяц
+    const expenses = revenue * 1.8; // Расходы на 80% больше дохода
+    const profit = revenue - expenses;
+    const profitability = ((profit / expenses) * 100);
+
+    return {
+      revenue: Math.round(revenue),
+      expenses: Math.round(expenses),
+      profit: Math.round(profit),
+      profitability: profitability.toFixed(1)
+    };
   };
+
+  const currentEconomics = selectedCrop && getCropPrice(selectedCrop.id) 
+    ? calculateEconomics(selectedCrop, area, getCropPrice(selectedCrop.id))
+    : null;
 
   if (loading) {
     return (
-      <div className="crop-search-container">
-        <div className="loading-state">
-          <div className="loader"></div>
-          <p>Загрузка базы культур...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="crop-search-container">
-        <div className="error-state">
-          <AlertTriangle size={48} className="error-icon" />
-          <h3>Ошибка загрузки</h3>
-          <p>{error}</p>
-          <p>Используются демо-данные</p>
-        </div>
+      <div className="crop-search">
+        <div className="loading-panel">Загрузка культур...</div>
       </div>
     );
   }
 
   return (
-    <div className="crop-search-container">
-      <div className="main-header">
-        <div className="header-content">
-          <h1>АгроПланнер</h1>
-          <div className="header-subtitle">
-            <span className="crop-count">{crops.length} культур в базе</span>
+    <div className="crop-search">
+      {/* Основной контент */}
+      <div className="main-content">
+        {/* Боковая панель фильтров */}
+        <aside className="sidebar">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="Введите название или букву..."
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              className="search-input"
+            />
+            <span className="search-icon">🔍</span>
           </div>
-        </div>
+          
+          <div className="filter-section">
+            <h3 className="filter-title">Фильтры</h3>
+            <div className="filter-group">
+              <label className="filter-label">Категория</label>
+              <select className="filter-select">
+                <option>Все категории</option>
+                <option>Эфирномасличные</option>
+                <option>Технические</option>
+                <option>Лекарственные</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label className="filter-label">Тип</label>
+              <select className="filter-select">
+                <option>Все типы</option>
+                <option>Основная</option>
+                <option>Редкая</option>
+              </select>
+            </div>
+            <div className="filter-group">
+              <label className="filter-label">Урожайность</label>
+              <select className="filter-select">
+                <option>Любая</option>
+                <option>Высокая (&gt; 3 т/га)</option>
+                <option>Средняя (1-3 т/га)</option>
+                <option>Низкая (&lt; 1 т/га)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="stats-panel">
+            <div className="stat-item">
+              <span className="stat-value">{totalCropsCount}</span>
+              <span className="stat-label">всего культур</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-value">{mainCropsCount}</span>
+              <span className="stat-label">основные</span>
+            </div>
+            <div className="stat-item">
+              <span className="stat-value">{rareCropsCount}</span>
+              <span className="stat-label">редкие</span>
+            </div>
+          </div>
+        </aside>
+        
+        {/* Основная область контента */}
+        <main className="content-area">
+          <div className="content-header">
+            <div className="header-left">
+              <h1 className="content-title">Поиск сельскохозяйственных культур</h1>
+              <p className="content-subtitle">Эко-калькулятор • {pricesLoading ? 'Обновление...' : 'Локальные данные'}</p>
+            </div>
+            <div className="header-right">
+              <span className="counter-badge">{filteredCrops.length} из {totalCropsCount}</span>
+              <button 
+                className="refresh-btn" 
+                onClick={refreshPrices} 
+                disabled={pricesLoading}
+              >
+                {pricesLoading ? '🔄' : '⟳'} Обновить
+              </button>
+            </div>
+          </div>
+
+          {/* Компактный список культур с прокруткой */}
+          <div className="compact-crops-container">
+            <div className="compact-crops-list" ref={cropsListRef}>
+              {filteredCrops.map((crop) => {
+                const price = getCropPrice(crop.id);
+                const isSelected = selectedCrop?.id === crop.id;
+                
+                return (
+                  <div
+                    key={crop.id}
+                    className={`compact-crop-item ${isSelected ? 'selected' : ''}`}
+                    onClick={() => setSelectedCrop(crop)}
+                  >
+                    <div className="compact-crop-main">
+                      <span className="compact-crop-name">{crop.name}</span>
+                      <span className={`compact-crop-type ${crop.type}`}>
+                        {crop.type}
+                      </span>
+                    </div>
+                    <div className="compact-crop-details">
+                      <span className="compact-crop-yield">{crop.yield} т/га</span>
+                      {price && (
+                        <span className="compact-crop-price">{price.price.toLocaleString()} ₽/т</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {filteredCrops.length === 0 && (
+            <div className="empty-state">
+              <h3>Культуры не найдены</h3>
+              <p>Попробуйте изменить параметры поиска</p>
+            </div>
+          )}
+        </main>
       </div>
 
-      <div className="main-content">
-        <div className="left-column">
-          <div className="search-panel">
-            <div className="panel-header">
-              <h3>Поиск культур</h3>
-              <div className="search-stats">
-                {filteredCrops.length} из {crops.length}
-              </div>
-            </div>
-            
-            <div className="search-box">
-              <Search size={20} className="search-icon" />
-              <input
-                type="text"
-                placeholder="Введите название или букву для быстрой прокрутки..."
-                value={searchQuery}
-                onChange={handleSearchInputChange}
-                className="search-input"
-              />
-              {searchQuery && (
-                <button 
-                  className="clear-btn"
-                  onClick={handleClearSearch}
-                  aria-label="Очистить поиск"
-                >
-                  <X size={16} />
-                </button>
-              )}
-            </div>
-            
-            <div className="quick-nav-hint">
-              <strong>Быстрая навигация:</strong> введите одну букву для прокрутки к культурам
-            </div>
-          </div>
-
-          <div className="crops-panel">
-            <div className="panel-header">
-              <h3>Список культур</h3>
-              <div className="alphabet-hint">
-                А-Я
-              </div>
-            </div>
-            
-            <div className="crops-list" ref={cropsListRef}>
-              {filteredCrops.map(crop => (
-                <div
-                  key={crop.id}
-                  className={`crop-card ${selectedCrop?.id === crop.id ? 'selected' : ''}`}
-                  onClick={() => setSelectedCrop(crop)}
-                >
-                  <div className="crop-main">
-                    <div className="crop-name">{crop.name}</div>
-                    <div className="crop-latin">{crop.latin}</div>
-                  </div>
-                  <div className="crop-meta">
-                    <span className="crop-category">{crop.categories[0]}</span>
-                    <span className={`crop-type ${crop.type}`}>
-                      {crop.type === 'основная' ? <Wheat size={12} /> : <Star size={12} />}
-                      {crop.type}
-                    </span>
-                  </div>
-                </div>
-              ))}
-              
-              {filteredCrops.length === 0 && (
-                <div className="empty-state">
-                  <Sprout size={48} className="empty-icon" />
-                  <p>Культуры не найдены</p>
-                  <p className="empty-hint">Попробуйте ввести другую букву или название</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="right-column">
-          {selectedCrop ? (
-            <div className="details-panel">
-              <div className="crop-header">
-                <div className="crop-title">
+      {/* Детали выбранной культуры - полноразмерное окно без скролла */}
+      {selectedCrop && (
+        <div className="crop-detail-full">
+          <div className="detail-layout">
+            {/* Левая часть - характеристики культуры */}
+            <div className="detail-left">
+              <div className="detail-header">
+                <div className="crop-title-section">
                   <h2>{selectedCrop.name}</h2>
+                  <p className="latin-name">{selectedCrop.latin}</p>
+                </div>
+                <div className="crop-meta">
                   <span className={`type-badge ${selectedCrop.type}`}>
-                    {selectedCrop.type === 'основная' ? <Wheat size={14} /> : <Star size={14} />}
                     {selectedCrop.type}
                   </span>
+                  <span className="category-tag">{selectedCrop.categories[0]}</span>
                 </div>
-                <div className="crop-latin-name">{selectedCrop.latin}</div>
               </div>
 
               <div className="info-section">
-                <h4>Информация о культуре</h4>
-                <div className="info-cards">
-                  <div className="info-card">
-                    <BarChart3 size={24} className="info-icon" />
-                    <div className="info-content">
-                      <div className="info-label">Категории</div>
-                      <div className="info-value">{selectedCrop.categories.join(', ')}</div>
-                    </div>
+                <h3>Характеристики культуры</h3>
+                <div className="info-grid">
+                  <div className="info-item">
+                    <label>Категории</label>
+                    <span>{selectedCrop.categories.join(', ')}</span>
                   </div>
-                  
-                  <div className="info-card">
-                    <Tag size={24} className="info-icon" />
-                    <div className="info-content">
-                      <div className="info-label">Тип</div>
-                      <div className="info-value">{selectedCrop.type}</div>
-                    </div>
+                  <div className="info-item">
+                    <label>Тип</label>
+                    <span>{selectedCrop.type}</span>
                   </div>
-                  
-                  <div className="info-card">
-                    <Hash size={24} className="info-icon" />
-                    <div className="info-content">
-                      <div className="info-label">ID в базе</div>
-                      <div className="info-value">#{selectedCrop.id}</div>
-                    </div>
+                  <div className="info-item">
+                    <label>Урожайность</label>
+                    <span>{selectedCrop.yield} т/га</span>
+                  </div>
+                  <div className="info-item">
+                    <label>ID культуры</label>
+                    <span className="crop-id">{selectedCrop.id}</span>
                   </div>
                 </div>
               </div>
+            </div>
 
+            {/* Правая часть - цены и калькулятор */}
+            <div className="detail-right">
+              {/* Цены */}
+              {getCropPrice(selectedCrop.id) && (
+                <div className="price-section">
+                  <h3>Текущие цены</h3>
+                  <div className="price-card">
+                    <div className="price-main">
+                      <span className="price-value">{getCropPrice(selectedCrop.id)?.price.toLocaleString()} ₽</span>
+                      <span className="price-unit">за тонну</span>
+                    </div>
+                    <div className="price-details">
+                      <div className="price-meta">
+                        <span>Источник: {getCropPrice(selectedCrop.id)?.source}</span>
+                        <span>Обновлено: {getCropPrice(selectedCrop.id)?.date}</span>
+                      </div>
+                      {getCropPrice(selectedCrop.id)?.changePercent && (
+                        <div className={`price-trend ${(getCropPrice(selectedCrop.id)?.changePercent || 0) >= 0 ? 'positive' : 'negative'}`}>
+                          {(getCropPrice(selectedCrop.id)?.changePercent || 0) >= 0 ? '↗' : '↘'} 
+                          {Math.abs(getCropPrice(selectedCrop.id)?.changePercent || 0)}%
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Экономический калькулятор */}
               <div className="calculator-section">
-                <h4>
-                  <Calculator size={20} style={{ marginRight: '8px' }} />
-                  Калькулятор урожайности
-                </h4>
-                
-                <div className="calculator-card">
-                  <div className="input-group">
-                    <label htmlFor="area-input">Площадь посева (га)</label>
-                    <input
-                      id="area-input"
-                      type="number"
-                      value={area}
-                      onChange={(e) => setArea(Math.max(1, Number(e.target.value)))}
-                      min="1"
-                      className="area-input"
-                    />
-                  </div>
+                <h3>Экономический расчет</h3>
+                <div className="calculator-input">
+                  <label>Площадь посева (га)</label>
+                  <input
+                    type="number"
+                    value={area}
+                    onChange={(e) => setArea(Number(e.target.value))}
+                    min="1"
+                    max="10000"
+                    placeholder="Введите площадь"
+                    className="area-input-no-arrows"
+                  />
+                </div>
 
-                  {economics && (
-                    <div className="results">
-                      <div className="result-row">
-                        <span className="result-label">Общие расходы:</span>
-                        <span className="result-value expense">
-                          {formatCurrency(economics.expenses)}
-                        </span>
-                      </div>
-                      <div className="result-row">
-                        <span className="result-label">Ожидаемый доход:</span>
-                        <span className="result-value income">
-                          {formatCurrency(economics.revenue)}
-                        </span>
-                      </div>
-                      <div className="result-row total">
-                        <span className="result-label">Прибыль:</span>
-                        <span className={`result-value ${economics.profit >= 0 ? 'profit' : 'loss'}`}>
-                          {economics.profit >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                          {formatCurrency(economics.profit)}
-                        </span>
-                      </div>
-                      <div className="result-row">
-                        <span className="result-label">Рентабельность:</span>
-                        <span className={`result-value ${economics.profitability >= 0 ? 'profit' : 'loss'}`}>
-                          {economics.profitability >= 0 ? <TrendingUp size={16} /> : <TrendingDown size={16} />}
-                          {economics.profitability.toFixed(1)}%
-                        </span>
-                      </div>
+                {currentEconomics && area > 0 && (
+                  <div className="calculation-results">
+                    <div className="result-row">
+                      <span>Общие расходы:</span>
+                      <strong>{currentEconomics.expenses.toLocaleString()} ₽</strong>
                     </div>
-                  )}
-                </div>
+                    <div className="result-row">
+                      <span>Ожидаемый доход:</span>
+                      <strong>{currentEconomics.revenue.toLocaleString()} ₽</strong>
+                    </div>
+                    <div className="result-row">
+                      <span>Чистая прибыль:</span>
+                      <strong className={currentEconomics.profit >= 0 ? 'positive' : 'negative'}>
+                        {currentEconomics.profit.toLocaleString()} ₽
+                      </strong>
+                    </div>
+                    <div className="result-row">
+                      <span>Рентабельность:</span>
+                      <strong className={currentEconomics.profitability >= 0 ? 'positive' : 'negative'}>
+                        {currentEconomics.profitability}%
+                      </strong>
+                    </div>
+                    {currentEconomics.profit < 0 && (
+                      <div className="calculation-note">
+                        *В первый месяц наблюдаются отрицательные показатели из-за высоких стартовых затрат
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
-          ) : (
-            <div className="welcome-panel">
-              <div className="welcome-content">
-                <Leaf size={64} className="welcome-icon" />
-                <h3>Добро пожаловать в АгроПланнер</h3>
-                <p>Выберите культуру из списка для просмотра детальной информации и расчета экономики</p>
-                
-                <div className="welcome-stats">
-                  <div className="stat-item">
-                    <Database size={32} className="stat-icon" />
-                    <div className="stat-number">{stats.total}</div>
-                    <div className="stat-label">культур в базе</div>
-                  </div>
-                  <div className="stat-item">
-                    <Wheat size={32} className="stat-icon" />
-                    <div className="stat-number">{stats.main}</div>
-                    <div className="stat-label">основных культур</div>
-                  </div>
-                  <div className="stat-item">
-                    <Star size={32} className="stat-icon" />
-                    <div className="stat-number">{stats.rare}</div>
-                    <div className="stat-label">редких культур</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
+
+      {error && (
+        <div className="error-panel">
+          {error}
+        </div>
+      )}
     </div>
   );
 };
